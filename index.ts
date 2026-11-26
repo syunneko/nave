@@ -315,7 +315,7 @@ app.post("/api/search", async (req, res) => {
   }
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`サーバー起動完了: http://localhost:${PORT}`);
+const PORT = Number(process.env.PORT) || 3000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`サーバー起動完了: http://0.0.0.0:${PORT}`);
 });
