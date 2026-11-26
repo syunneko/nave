@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Transit AI - スマート経路＆マップ案内</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <style>
+    body {
+      background-color: #f8fafc;
+      background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+    .markdown-body p { margin-bottom: 0.7rem; line-height: 1.7; color: #334155; }
+    .markdown-body ul, .markdown-body ol { padding-left: 1.4rem; margin-bottom: 0.75rem; color: #334155; }
+    .markdown-body ul { list-style-type: disc; }
+    .markdown-body ol { list-style-type: decimal; }
+    .markdown-body li { margin-bottom: 0.35rem; }
+    .markdown-body strong { color: #0284c7; font-weight: 700; }
+
+    #routeMap {
+      height: 260px;
+      width: 100%;
+      z-index: 1;
+      background-color: #f1f5f9;
+      touch-action: pan-x pan-y;
+    }
+    @media (min-width: 1024px) {
+      #routeMap {
+        height: 350px;
+      }
+    }
+
+    @media (max-width: 1023px) {
+      main {
+        padding-bottom: 6.5rem;
+      }
+    }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen font-sans antialiased selection:bg-sky-100 selection:text-sky-900">
+
+  <!-- ヘッダー -->
+  <header class="bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-20">
+    <div class="max-w-6xl mx-auto px-4 sm:px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-sky-500/20 shrink-0">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900">Transit AI</h1>
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-sky-50 text-sky-600 border border-sky-200">GPS Ready</span>
+            </div>
+            <p class="text-[11px] sm:text-xs text-slate-500">GPS出発地・乗降ポイント＆マップ連動</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center w-full sm:w-auto">
+        <input
+          type="password"
+          id="apiKeyInput"
+          placeholder="Gemini API Key (任意・環境変数優先)"
+          class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/15 w-full sm:w-64 transition"
+        />
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-5 py-5 sm:py-8 grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-7 items-start">
+    
+    <!-- 左カラム：検索パネル -->
+    <section class="lg:col-span-4 space-y-5 lg:sticky lg:top-24">
+      <div class="bg-white border border-slate-200/90 rounded-3xl p-4 sm:p-6 shadow-sm shadow-slate-200/60">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+            ルート検索条件
+          </h2>
+          <span class="text-[11px] text-slate-400">公共交通機関</span>
+        </div>
+
+        <form id="searchForm" class="space-y-3.5 sm:space-y-4">
+          <!-- 出発・到着ボックス -->
+          <div class="bg-slate-50/90 border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 space-y-2 relative">
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="flex items-center gap-1.5 text-[11px] font-bold text-emerald-600">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+                  出発地
+                </label>
+                <button
+                  type="button"
+                  id="gpsBtn"
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-700 border border-emerald-200 transition"
+                >
+                  <span>📍 現在地</span>
+                </button>
+              </div>
+              <input
+                type="text"
+                id="origin"
+                value="博多駅"
+                required
+                class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/15 transition"
+              />
+              <p id="gpsStatus" class="text-[11px] text-slate-400 mt-1 hidden"></p>
+            </div>
+
+            <div class="flex justify-end pr-2 -my-1 relative z-10">
+              <button
+                type="button"
+                id="swapBtn"
+                title="出発地と目的地を入れ替え"
+                class="p-2 rounded-full bg-white active:scale-95 hover:bg-sky-50 text-slate-500 hover:text-sky-600 border border-slate-200 shadow-sm transition"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                </svg>
+              </button>
+            </div>
+
+            <div>
+              <label class="flex items-center gap-1.5 text-[11px] font-bold text-rose-600 mb-1">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                目的地
+              </label>
+              <input
+                type="text"
+                id="destination"
+                value="天神駅"
+                required
+                class="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm font-medium text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/15 transition"
+              />
+            </div>
+          </div>
+
+          <!-- 優先条件 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1.5">優先モード</label>
+            <div class="grid grid-cols-2 gap-2.5">
+              <label class="cursor-pointer">
+                <input type="radio" name="preference" value="shortest" checked class="peer sr-only" />
+                <div class="text-center py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-500 text-xs font-bold peer-checked:border-sky-500 peer-checked:bg-sky-50 peer-checked:text-sky-700 peer-checked:shadow-sm transition">
+                  ⚡ 最短時間
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="preference" value="cheapest" class="peer sr-only" />
+                <div class="text-center py-2.5 px-3 rounded-xl border border-slate-200 bg-slate-50/70 text-slate-500 text-xs font-bold peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-700 peer-checked:shadow-sm transition">
+                  💴 最安運賃
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- 追加要望 -->
+          <div>
+            <label class="block text-xs font-bold text-slate-600 mb-1.5">追加の要望（任意）</label>
+            <input
+              type="text"
+              id="userNote"
+              placeholder="例：大きな荷物がある、雨に濡れたくない"
+              class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/15 transition"
+            />
+          </div>
+
+          <!-- PC用検索ボタン -->
+          <button
+            type="submit"
+            id="submitBtn"
+            class="hidden lg:flex w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-sm shadow-md shadow-sky-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center gap-2"
+          >
+            <span>ルートとマップを検索</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <!-- 右カラム：マップ・AI解説・候補ルート -->
+    <section id="resultsSection" class="lg:col-span-8 space-y-5 sm:space-y-6">
+      
+      <div class="bg-white border border-slate-200/90 rounded-3xl overflow-hidden shadow-sm shadow-slate-200/60">
+        <div class="px-4 sm:px-5 py-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 bg-white">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0"></span>
+            <h3 class="text-sm font-bold text-slate-900">ルートマップ</h3>
+            <span id="mapActiveBadge" class="text-[11px] sm:text-xs font-semibold text-slate-500">検索すると経路を表示します</span>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] font-medium text-slate-500">
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>乗車</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block"></span>乗換</span>
+            <span class="flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>下車</span>
+          </div>
+        </div>
+        <div id="routeMap" class="flex items-center justify-center text-xs text-slate-500">
+          地図を読み込み中...
+        </div>
+      </div>
+
+      <div id="emptyState" class="bg-white/80 border border-dashed border-slate-300 rounded-3xl p-7 sm:p-10 text-center">
+        <p class="text-slate-500 text-xs sm:text-sm">出発地（📍現在地も利用可能）と目的地を入力して検索すると、地図上の経路描画と乗降ガイドが表示されます。</p>
+      </div>
+
+      <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-3xl p-8 sm:p-10 text-center space-y-3 shadow-sm">
+        <div class="inline-block w-8 h-8 border-4 border-sky-100 border-t-sky-500 rounded-full animate-spin"></div>
+        <p class="text-xs sm:text-sm font-medium text-slate-600">最適ルートと乗車・降車地点を分析中...</p>
+      </div>
+
+      <div id="errorState" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 text-rose-700 text-xs sm:text-sm font-medium"></div>
+
+      <div id="resultContainer" class="hidden space-y-5 sm:space-y-6">
+        <div class="bg-white border border-sky-200/80 rounded-3xl p-4 sm:p-6 shadow-sm shadow-sky-100/50">
+          <div class="flex items-center gap-2 mb-3 pb-2.5 border-b border-slate-100">
+            <span class="px-2.5 py-1 text-[11px] font-bold rounded-full bg-sky-50 text-sky-700 border border-sky-200">
+              AI 乗降ガイド
+            </span>
+            <span class="text-[11px] sm:text-xs text-slate-400">おすすめルートと乗り換えポイント</span>
+          </div>
+          <div id="aiExplanation" class="markdown-body text-xs sm:text-sm"></div>
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-2.5 px-1">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">
+              候補ルート一覧（タップで地図切替）
+            </h3>
+          </div>
+          <div id="routeCards" class="space-y-3.5 sm:space-y-4"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- スマホ専用：画面下部固定アクションバー -->
+  <div class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 shadow-[0_-4px_16px_rgba(15,23,42,0.08)]">
+    <button
+      type="button"
+      id="mobileSubmitBtn"
+      class="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 active:scale-[0.99] text-white font-bold text-sm shadow-md shadow-sky-500/25 transition disabled:opacity-50 flex items-center justify-center gap-2"
+    >
+      <span>ルートとマップを検索</span>
+    </button>
+  </div>
+
+  <script>
+    let map = null;
+    let routeLayerGroup = null;
+    let currentCandidates = [];
+    let currentBestRouteId = "";
+    let selectedRouteId = "";
+    let currentOriginCoords = null; // [lat, lng]
+
+    function initMap() {
+      const mapEl = document.getElementById("routeMap");
+      if (!window.L) {
+        mapEl.innerHTML = '<div class="p-6 text-center text-slate-500">地図ライブラリ（Leaflet）を読み込めませんでした。</div>';
+        return;
+      }
+      mapEl.textContent = "";
+      map = L.map("routeMap", {
+        tap: false,
+      }).setView([33.5915, 130.4095], 14);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map);
+      routeLayerGroup = L.layerGroup().addTo(map);
+    }
+
+    window.addEventListener("DOMContentLoaded", initMap);
+
+    function createPinIcon(color, label) {
+      return L.divIcon({
+        className: "",
+        html: `<div style="background:${color};color:#fff;font-weight:700;font-size:10px;padding:2px 7px;border-radius:9999px;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.25);white-space:nowrap;transform:translate(-50%,-50%);">${label}</div>`,
+        iconSize: [0, 0],
+      });
+    }
+
+    function renderRouteOnMap(route, scrollToMap = false) {
+      if (!route) return;
+      selectedRouteId = route.routeId;
+
+      if (!map && window.L) {
+        initMap();
+      }
+      if (!map || !routeLayerGroup) {
+        renderRouteCards();
+        return;
+      }
+
+      routeLayerGroup.clearLayers();
+
+      const badge = document.getElementById("mapActiveBadge");
+      badge.innerHTML = `<span class="px-2 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200">ルート${route.routeId}: ${route.summary}（${route.durationMinutes}分 / ¥${route.fareYen}）</span>`;
+
+      const boundsPoints = [];
+
+      route.legs.forEach((leg, idx) => {
+        const isWalk = leg.mode === "walk";
+        const polyline = L.polyline(leg.path, {
+          color: isWalk ? "#64748b" : route.color || "#0284c7",
+          weight: isWalk ? 4 : 6,
+          opacity: 0.9,
+          dashArray: isWalk ? "6, 8" : undefined,
+        }).addTo(routeLayerGroup);
+
+        polyline.bindPopup(`<b>${leg.lineName}</b><br>乗車: ${leg.boardAt}<br>下車: ${leg.alightAt}`);
+        leg.path.forEach((pt) => boundsPoints.push(pt));
+
+        if (idx === 0) {
+          L.marker(leg.boardCoords, {
+            icon: createPinIcon("#10b981", `発: ${leg.boardAt.split(" ")[0]}`),
+          })
+            .bindPopup(`<b>【乗車】${leg.lineName}</b><br>${leg.boardAt}`)
+            .addTo(routeLayerGroup);
+        } else {
+          L.marker(leg.boardCoords, {
+            icon: createPinIcon("#f59e0b", `乗換: ${leg.boardAt.split(" ")[0]}`),
+          })
+            .bindPopup(`<b>【乗換・乗車】${leg.lineName}</b><br>${leg.boardAt}`)
+            .addTo(routeLayerGroup);
+        }
+
+        if (idx === route.legs.length - 1) {
+          L.marker(leg.alightCoords, {
+            icon: createPinIcon("#e11d48", `着: ${leg.alightAt.split(" ")[0]}`),
+          })
+            .bindPopup(`<b>【下車】${leg.lineName}</b><br>${leg.alightAt}`)
+            .addTo(routeLayerGroup);
+        }
+      });
+
+      if (boundsPoints.length > 0) {
+        map.fitBounds(L.latLngBounds(boundsPoints), { padding: [36, 36] });
+      }
+
+      if (scrollToMap && window.innerWidth < 1024) {
+        document.getElementById("routeMap").scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+
+      renderRouteCards();
+    }
+
+    const form = document.getElementById("searchForm");
+    const swapBtn = document.getElementById("swapBtn");
+    const gpsBtn = document.getElementById("gpsBtn");
+    const gpsStatus = document.getElementById("gpsStatus");
+    const originInput = document.getElementById("origin");
+    const destInput = document.getElementById("destination");
+    const apiKeyInput = document.getElementById("apiKeyInput");
+    const submitBtn = document.getElementById("submitBtn");
+    const mobileSubmitBtn = document.getElementById("mobileSubmitBtn");
+
+    const emptyState = document.getElementById("emptyState");
+    const loadingState = document.getElementById("loadingState");
+    const errorState = document.getElementById("errorState");
+    const resultContainer = document.getElementById("resultContainer");
+    const aiExplanationEl = document.getElementById("aiExplanation");
+    const routeCardsEl = document.getElementById("routeCards");
+
+    // ユーザーが手動で出発地を変更したらGPS座標を解除
+    originInput.addEventListener("input", () => {
+      if (!originInput.value.startsWith("現在地")) {
+        currentOriginCoords = null;
+        gpsStatus.classList.add("hidden");
+      }
+    });
+
+    // GPS現在地取得
+    gpsBtn.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        gpsStatus.textContent = "このブラウザはGPS（位置情報）に対応していません。";
+        gpsStatus.className = "text-[11px] text-rose-600 mt-1";
+        gpsStatus.classList.remove("hidden");
+        return;
+      }
+
+      gpsBtn.disabled = true;
+      gpsBtn.textContent = "📡 取得中...";
+      gpsStatus.textContent = "現在地を取得しています...";
+      gpsStatus.className = "text-[11px] text-slate-500 mt-1";
+      gpsStatus.classList.remove("hidden");
+
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = Number(pos.coords.latitude.toFixed(5));
+          const lng = Number(pos.coords.longitude.toFixed(5));
+          currentOriginCoords = [lat, lng];
+          originInput.value = `現在地 (${lat}, ${lng})`;
+          gpsStatus.textContent = `GPS取得完了: 緯度 ${lat}, 経度 ${lng}（±${Math.round(pos.coords.accuracy)}m）`;
+          gpsStatus.className = "text-[11px] text-emerald-600 mt-1";
+          gpsStatus.classList.remove("hidden");
+          gpsBtn.disabled = false;
+          gpsBtn.innerHTML = "<span>📍 現在地</span>";
+
+          if (map) {
+            map.setView([lat, lng], 15);
+          }
+        },
+        (err) => {
+          let msg = "現在地を取得できませんでした。";
+          if (err.code === err.PERMISSION_DENIED) {
+            msg = "位置情報の利用が許可されていません。ブラウザの設定を確認してください。";
+          } else if (err.code === err.TIMEOUT) {
+            msg = "位置情報の取得がタイムアウトしました。";
+          }
+          gpsStatus.textContent = msg;
+          gpsStatus.className = "text-[11px] text-rose-600 mt-1";
+          gpsStatus.classList.remove("hidden");
+          gpsBtn.disabled = false;
+          gpsBtn.innerHTML = "<span>📍 現在地</span>";
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+      );
+    });
+
+    swapBtn.addEventListener("click", () => {
+      const temp = originInput.value;
+      originInput.value = destInput.value;
+      destInput.value = temp;
+      currentOriginCoords = null;
+      gpsStatus.classList.add("hidden");
+    });
+
+    mobileSubmitBtn.addEventListener("click", () => {
+      form.requestSubmit();
+    });
+
+    function setSubmitting(isSubmitting) {
+      submitBtn.disabled = isSubmitting;
+      mobileSubmitBtn.disabled = isSubmitting;
+      mobileSubmitBtn.textContent = isSubmitting ? "検索中..." : "ルートとマップを検索";
+    }
+
+    function getModeBadge(mode) {
+      if (mode === "train") {
+        return '<span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-sky-50 text-sky-700 border border-sky-200">🚃 電車</span>';
+      }
+      if (mode === "bus") {
+        return '<span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-amber-50 text-amber-700 border border-amber-200">🚌 バス</span>';
+      }
+      return '<span class="px-2 py-0.5 text-[11px] font-bold rounded-md bg-slate-100 text-slate-600 border border-slate-200">🚶 徒歩</span>';
+    }
+
+    function renderRouteCards() {
+      routeCardsEl.innerHTML = currentCandidates
+        .map((r) => {
+          const isBest = r.routeId === currentBestRouteId;
+          const isSelectedOnMap = r.routeId === selectedRouteId;
+
+          const legsHtml = r.legs
+            .map(
+              (leg) => `
+                <div class="relative pl-4 sm:pl-5 pb-3 last:pb-0 border-l-2 ${
+                  isSelectedOnMap ? "border-sky-400" : "border-slate-200"
+                }">
+                  <span class="absolute -left-[7px] top-1 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
+                    isSelectedOnMap ? "bg-sky-500" : "bg-slate-400"
+                  }"></span>
+                  <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
+                    ${getModeBadge(leg.mode)}
+                    <span class="text-xs font-bold text-slate-800">${leg.lineName}</span>
+                    <span class="text-[11px] font-medium text-slate-400">(${leg.durationMinutes}分)</span>
+                  </div>
+                  <div class="bg-slate-50/90 border border-slate-200/80 rounded-xl p-2.5 sm:p-3 text-xs space-y-1.5">
+                    <div class="flex items-start gap-2">
+                      <span class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[10px] shrink-0">乗車</span>
+                      <span class="text-slate-700 font-medium">${leg.boardAt}</span>
+                    </div>
+                    <div class="flex items-start gap-2">
+                      <span class="px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[10px] shrink-0">下車</span>
+                      <span class="text-slate-700 font-medium">${leg.alightAt}</span>
+                    </div>
+                    ${
+                      leg.note
+                        ? `<p class="text-[11px] text-slate-500 pt-0.5">💡 ${leg.note}</p>`
+                        : ""
+                    }
+                  </div>
+                </div>
+              `
+            )
+            .join("");
+
+          return `
+            <div
+              onclick="selectRouteById('${r.routeId}')"
+              class="cursor-pointer rounded-3xl p-4 sm:p-5 bg-white border-2 transition-all ${
+                isSelectedOnMap
+                  ? "border-sky-500 shadow-md shadow-sky-100"
+                  : "border-slate-200/90 hover:border-slate-300 shadow-sm"
+              }"
+            >
+              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3.5 pb-3 border-b border-slate-100">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="w-7 h-7 rounded-xl text-xs font-extrabold flex items-center justify-center ${
+                    isBest ? "bg-sky-500 text-white shadow-sm" : "bg-slate-100 text-slate-600"
+                  }">
+                    ${r.routeId}
+                  </span>
+                  <span class="font-bold text-sm text-slate-900">${r.summary}</span>
+                  ${
+                    isBest
+                      ? '<span class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">おすすめ</span>'
+                      : ""
+                  }
+                  ${
+                    isSelectedOnMap
+                      ? '<span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">地図表示中</span>'
+                      : ""
+                  }
+                </div>
+                <div class="flex items-center gap-3.5 text-sm">
+                  <span class="font-extrabold text-slate-900">${r.durationMinutes}<span class="text-xs font-normal text-slate-500 ml-0.5">分</span></span>
+                  <span class="font-extrabold text-emerald-600">¥${r.fareYen}</span>
+                  <span class="text-xs font-medium text-slate-500">乗換 ${r.transfers}回</span>
+                </div>
+              </div>
+
+              <div class="ml-1">
+                ${legsHtml}
+              </div>
+            </div>
+          `;
+        })
+        .join("");
+    }
+
+    window.selectRouteById = function (routeId) {
+      const target = currentCandidates.find((c) => c.routeId === routeId);
+      if (target) {
+        renderRouteOnMap(target, true);
+      }
+    };
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const origin = originInput.value.trim();
+      const destination = destInput.value.trim();
+      const preference = document.querySelector('input[name="preference"]:checked').value;
+      const userNote = document.getElementById("userNote").value.trim();
+      const apiKey = apiKeyInput.value.trim();
+
+      emptyState.classList.add("hidden");
+      errorState.classList.add("hidden");
+      resultContainer.classList.add("hidden");
+      loadingState.classList.remove("hidden");
+      setSubmitting(true);
+
+      try {
+        const res = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            origin,
+            destination,
+            preference,
+            userNote,
+            apiKey,
+            originCoords: currentOriginCoords,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "検索に失敗しました");
+        }
+
+        currentCandidates = data.candidates;
+        currentBestRouteId = data.bestRouteId;
+
+        aiExplanationEl.innerHTML = marked.parse(data.aiExplanation);
+
+        loadingState.classList.add("hidden");
+        resultContainer.classList.remove("hidden");
+
+        setTimeout(() => {
+          if (map) map.invalidateSize();
+          const best = currentCandidates.find((c) => c.routeId === currentBestRouteId) || currentCandidates[0];
+          renderRouteOnMap(best, false);
+          if (window.innerWidth < 1024) {
+            document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth", block: "start" });
+          }
+        }, 60);
+      } catch (err) {
+        loadingState.classList.add("hidden");
+        errorState.textContent = "エラー: " + err.message;
+        errorState.classList.remove("hidden");
+      } finally {
+        setSubmitting(false);
+      }
+    });
+  </script>
+</body>
+</html>
