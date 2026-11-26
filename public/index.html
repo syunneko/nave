@@ -22,7 +22,6 @@
     .markdown-body li { margin-bottom: 0.4rem; }
     .markdown-body strong { color: #0284c7; font-weight: 700; }
 
-    /* スマホ・PCで地図高さを最適化 */
     #routeMap {
       height: 240px;
       width: 100%;
@@ -36,7 +35,6 @@
       }
     }
 
-    /* スマホ下部固定バー + iPhoneセーフエリア対応 */
     .mobile-bottom-bar {
       padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
     }
@@ -49,53 +47,27 @@
 </head>
 <body class="text-slate-800 min-h-screen font-sans antialiased selection:bg-sky-100 selection:text-sky-900">
 
-  <!-- ヘッダー（スマホでは1行にスッキリ集約） -->
+  <!-- ヘッダー（API入力欄なしでスッキリ表示） -->
   <header class="bg-white/95 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-20">
-    <div class="max-w-6xl mx-auto px-3.5 sm:px-5 py-2.5 sm:py-3">
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-sm shrink-0">
-            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-            </svg>
-          </div>
-          <div class="truncate">
-            <div class="flex items-center gap-1.5">
-              <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 truncate">Transit AI</h1>
-              <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 shrink-0">GPS対応</span>
-            </div>
-            <p class="text-[11px] sm:text-xs text-slate-500 truncate">乗降ポイント＆マップ連動 経路案内</p>
-          </div>
+    <div class="max-w-6xl mx-auto px-3.5 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-sm shrink-0">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
         </div>
-
-        <!-- スマホ用API設定開閉ボタン / PC用入力欄 -->
-        <button
-          type="button"
-          id="toggleApiBtn"
-          class="sm:hidden shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 active:bg-slate-200 text-slate-700 border border-slate-200 transition"
-        >
-          🔑 API設定
-        </button>
-
-        <div class="hidden sm:flex items-center">
-          <input
-            type="password"
-            id="apiKeyInputDesktop"
-            placeholder="Gemini API Key (環境変数優先)"
-            class="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-500 w-64 transition"
-          />
+        <div class="truncate">
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 truncate">Transit AI</h1>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 shrink-0">GPS対応</span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-slate-500 truncate">乗降ポイント＆マップ連動 経路案内</p>
         </div>
       </div>
 
-      <!-- スマホ用：折りたたみAPIキー入力欄 -->
-      <div id="mobileApiDrawer" class="hidden sm:hidden mt-2.5 pt-2.5 border-t border-slate-100">
-        <input
-          type="password"
-          id="apiKeyInputMobile"
-          placeholder="Gemini API Key（サーバー設定済なら空欄可）"
-          class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-base text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-500"
-        />
-      </div>
+      <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+        ● AI自動連携中
+      </span>
     </div>
   </header>
 
@@ -129,7 +101,6 @@
                   <span>📍 現在地を使う</span>
                 </button>
               </div>
-              <!-- text-base (16px) でスマホ入力時の勝手な画面ズームを防止 -->
               <input
                 type="text"
                 id="origin"
@@ -235,7 +206,7 @@
       </div>
 
       <div id="emptyState" class="bg-white/90 border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-6 sm:p-10 text-center">
-        <p class="text-slate-600 text-sm leading-relaxed">上のフォームで出発地・目的地を指定し、下の「ルートとマップを検索」をタップしてください。</p>
+        <p class="text-slate-600 text-sm leading-relaxed">上のフォームで出発地・目的地を指定し、「ルートとマップを検索」をタップしてください。</p>
       </div>
 
       <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-8 text-center space-y-3 shadow-sm">
@@ -289,22 +260,6 @@
     let currentBestRouteId = "";
     let selectedRouteId = "";
     let currentOriginCoords = null;
-
-    // スマホ用API設定トグル
-    const toggleApiBtn = document.getElementById("toggleApiBtn");
-    const mobileApiDrawer = document.getElementById("mobileApiDrawer");
-    const apiKeyInputDesktop = document.getElementById("apiKeyInputDesktop");
-    const apiKeyInputMobile = document.getElementById("apiKeyInputMobile");
-
-    toggleApiBtn.addEventListener("click", () => {
-      mobileApiDrawer.classList.toggle("hidden");
-    });
-
-    function getEffectiveApiKeyInput() {
-      const mobileVal = apiKeyInputMobile ? apiKeyInputMobile.value.trim() : "";
-      const desktopVal = apiKeyInputDesktop ? apiKeyInputDesktop.value.trim() : "";
-      return mobileVal || desktopVal;
-    }
 
     function initMap() {
       const mapEl = document.getElementById("routeMap");
@@ -594,7 +549,6 @@
       const destination = destInput.value.trim();
       const preference = document.querySelector('input[name="preference"]:checked').value;
       const userNote = document.getElementById("userNote").value.trim();
-      const apiKey = getEffectiveApiKeyInput();
 
       emptyState.classList.add("hidden");
       errorState.classList.add("hidden");
@@ -611,7 +565,6 @@
             destination,
             preference,
             userNote,
-            apiKey,
             originCoords: currentOriginCoords,
           }),
         });
