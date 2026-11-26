@@ -74,18 +74,21 @@ function resolvePlaceCoords(place: string, fallbackCoords?: LatLng): LatLng {
   }
 
   const normalized = place.trim();
+  if (!normalized) {
+    return [33.5914, 130.3989];
+  }
+
   if (KNOWN_PLACES[normalized]) {
     return KNOWN_PLACES[normalized];
   }
 
   for (const [key, coords] of Object.entries(KNOWN_PLACES)) {
-    if (normalized.includes(key) || key.includes(normalized)) {
+    if (key.length >= 2 && normalized.startsWith(key)) {
       return coords;
     }
   }
 
-  // 未知の地名でも入力文字列ごとに異なる地点へ配置
-  const h = hashText(normalized || "start");
+  const h = hashText(normalized);
   const latOffset = (((h % 1000) / 1000) - 0.5) * 0.04;
   const lngOffset = ((((Math.floor(h / 1000)) % 1000) / 1000) - 0.5) * 0.05;
   return [
@@ -94,7 +97,13 @@ function resolvePlaceCoords(place: string, fallbackCoords?: LatLng): LatLng {
   ];
 }
 
-function interpolatePoint(a: LatLng, b: LatLng, ratio: number, jitterLat = 0, jitterLng = 0): LatLng {
+function interpolatePoint(
+  a: LatLng,
+  b: LatLng,
+  ratio: number,
+  jitterLat = 0,
+  jitterLng = 0
+): LatLng {
   return [
     Number((a[0] + (b[0] - a[0]) * ratio + jitterLat).toFixed(5)),
     Number((a[1] + (b[1] - a[1]) * ratio + jitterLng).toFixed(5)),
@@ -158,14 +167,14 @@ function buildDynamicTransitCandidates(
       legs: [
         {
           mode: "train",
-          lineName: `${cleanOrigin}方面 都市鉄道線`,
+          lineName: `${cleanDest}方面 都市鉄道線`,
           boardAt: `${cleanOrigin} 最寄り駅・ホーム`,
           alightAt: `${cleanDest} 最寄り駅・ホーム`,
           boardCoords: startCoord,
           alightCoords: endCoord,
           path: [startCoord, mid1Fast, mid2Fast, endCoord],
           durationMinutes: fastMin,
-          note: `${gpsPrefix}乗り換えなしで向かう最短ルート`,
+          note: `${gpsPrefix}${cleanDest}へ乗り換えなしで向かう最短ルート`,
         },
       ],
     },
@@ -186,7 +195,7 @@ function buildDynamicTransitCandidates(
           alightCoords: busStopNearDest,
           path: [startCoord, busMid, busStopNearDest],
           durationMinutes: Math.max(3, busMin - 3),
-          note: "運賃を抑えやすいバス中心ルート",
+          note: `${cleanDest}付近まで運賃を抑えられるバス中心ルート`,
         },
         {
           mode: "walk",
