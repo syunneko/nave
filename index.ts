@@ -40,117 +40,204 @@ interface RouteCandidate {
   legs: RouteLeg[];
 }
 
-function getMockTransitCandidates(
+const KNOWN_PLACES: Record<string, LatLng> = {
+  博多駅: [33.5897, 130.4207],
+  博多: [33.5897, 130.4207],
+  天神駅: [33.5914, 130.3989],
+  天神: [33.5914, 130.3989],
+  祇園駅: [33.5941, 130.4139],
+  中洲川端駅: [33.5949, 130.4055],
+  吉塚駅: [33.6064, 130.4241],
+  福岡空港駅: [33.5955, 130.4446],
+  福岡空港: [33.5955, 130.4446],
+  大橋駅: [33.5604, 130.4328],
+  西新駅: [33.5818, 130.3583],
+  東京駅: [35.6812, 139.7671],
+  新宿駅: [35.6896, 139.7006],
+  渋谷駅: [35.658, 139.7016],
+  大阪駅: [34.7024, 135.4959],
+  梅田駅: [34.7055, 135.4983],
+  なんば駅: [34.6629, 135.5013],
+};
+
+function hashText(text: string): number {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function resolvePlaceCoords(place: string, fallbackCoords?: LatLng): LatLng {
+  if (fallbackCoords) {
+    return fallbackCoords;
+  }
+
+  const normalized = place.trim();
+  if (KNOWN_PLACES[normalized]) {
+    return KNOWN_PLACES[normalized];
+  }
+
+  for (const [key, coords] of Object.entries(KNOWN_PLACES)) {
+    if (normalized.includes(key) || key.includes(normalized)) {
+      return coords;
+    }
+  }
+
+  // 未知の地名でも入力文字列ごとに異なる地点へ配置
+  const h = hashText(normalized || "start");
+  const latOffset = (((h % 1000) / 1000) - 0.5) * 0.04;
+  const lngOffset = ((((Math.floor(h / 1000)) % 1000) / 1000) - 0.5) * 0.05;
+  return [
+    Number((33.5905 + latOffset).toFixed(5)),
+    Number((130.4095 + lngOffset).toFixed(5)),
+  ];
+}
+
+function interpolatePoint(a: LatLng, b: LatLng, ratio: number, jitterLat = 0, jitterLng = 0): LatLng {
+  return [
+    Number((a[0] + (b[0] - a[0]) * ratio + jitterLat).toFixed(5)),
+    Number((a[1] + (b[1] - a[1]) * ratio + jitterLng).toFixed(5)),
+  ];
+}
+
+function calculateDistanceKm(a: LatLng, b: LatLng): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const r = 6371;
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h =
+    sinLat * sinLat +
+    Math.cos(toRad(a[0])) * Math.cos(toRad(b[0])) * sinLng * sinLng;
+  return 2 * r * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function buildDynamicTransitCandidates(
   origin: string,
   destination: string,
   originCoords?: LatLng
 ): RouteCandidate[] {
-  const hakata: LatLng = originCoords ?? [33.5897, 130.4207];
-  const gion: LatLng = [33.5941, 130.4139];
-  const nakasu: LatLng = [33.5949, 130.4055];
-  const tenjin: LatLng = [33.5914, 130.3989];
+  const cleanOrigin = origin.trim() || "出発地";
+  const cleanDest = destination.trim() || "目的地";
 
-  const hakataBusStop: LatLng = originCoords ?? [33.5902, 130.4195];
-  const canalCityStop: LatLng = [33.5898, 130.4109];
-  const tenjinBusStop: LatLng = [33.5906, 130.4004];
-  const tenjinGoal: LatLng = [33.5918, 130.3984];
+  const startCoord = resolvePlaceCoords(cleanOrigin, originCoords);
+  const endCoord = resolvePlaceCoords(cleanDest);
 
-  const yoshizuka: LatLng = [33.6064, 130.4241];
-  const maidashi: LatLng = [33.6088, 130.4184];
+  const distKm = Math.max(0.8, calculateDistanceKm(startCoord, endCoord));
+  const seed = hashText(`${cleanOrigin}->${cleanDest}`);
 
-  const gpsNotePrefix = originCoords ? "現在地（GPS）付近から" : "";
+  const fastMin = Math.max(4, Math.round(distKm * 3.2) + (seed % 3));
+  const busMin = Math.max(fastMin + 4, Math.round(distKm * 4.5) + 3);
+  const transferMin = Math.max(fastMin + 3, Math.round(distKm * 4.0) + 2);
+
+  const fastFare = Math.max(180, Math.round((160 + distKm * 45) / 10) * 10);
+  const busFare = Math.max(150, fastFare - 40);
+  const transferFare = fastFare + 90;
+
+  const mid1Fast = interpolatePoint(startCoord, endCoord, 0.35, 0.002, -0.002);
+  const mid2Fast = interpolatePoint(startCoord, endCoord, 0.7, -0.0015, 0.0015);
+
+  const busMid = interpolatePoint(startCoord, endCoord, 0.5, -0.004, 0.003);
+  const busStopNearDest = interpolatePoint(startCoord, endCoord, 0.9, -0.001, 0.001);
+
+  const hub1 = interpolatePoint(startCoord, endCoord, 0.4, 0.005, 0.004);
+  const hub2 = interpolatePoint(startCoord, endCoord, 0.45, 0.006, 0.005);
+
+  const gpsPrefix = originCoords ? "GPS現在地周辺から" : "";
 
   return [
     {
       routeId: "A",
-      summary: "地下鉄 空港線（直通）",
-      durationMinutes: 6,
-      fareYen: 260,
+      summary: `${cleanOrigin} → ${cleanDest} 鉄道・地下鉄ルート`,
+      durationMinutes: fastMin,
+      fareYen: fastFare,
       transfers: 0,
       color: "#0284c7",
       legs: [
         {
           mode: "train",
-          lineName: "福岡市地下鉄 空港線（姪浜方面）",
-          boardAt: `${origin} 近くの地下鉄駅・のりば`,
-          alightAt: `${destination} 地下鉄ホーム`,
-          boardCoords: hakata,
-          alightCoords: tenjin,
-          path: [hakata, gion, nakasu, tenjin],
-          durationMinutes: 6,
-          note: `${gpsNotePrefix}乗り換えなしの最速直通ルート`,
+          lineName: `${cleanOrigin}方面 都市鉄道線`,
+          boardAt: `${cleanOrigin} 最寄り駅・ホーム`,
+          alightAt: `${cleanDest} 最寄り駅・ホーム`,
+          boardCoords: startCoord,
+          alightCoords: endCoord,
+          path: [startCoord, mid1Fast, mid2Fast, endCoord],
+          durationMinutes: fastMin,
+          note: `${gpsPrefix}乗り換えなしで向かう最短ルート`,
         },
       ],
     },
     {
       routeId: "B",
-      summary: "西鉄路線バス（都心循環）",
-      durationMinutes: 18,
-      fareYen: 190,
+      summary: `${cleanOrigin} → ${cleanDest} 路線バス＋徒歩ルート`,
+      durationMinutes: busMin,
+      fareYen: busFare,
       transfers: 0,
       color: "#059669",
       legs: [
         {
           mode: "bus",
-          lineName: "西鉄バス（国体道路・キャナルシティ経由）",
-          boardAt: `${origin} 近くのバス停`,
-          alightAt: `${destination}前 バス停`,
-          boardCoords: hakataBusStop,
-          alightCoords: tenjinBusStop,
-          path: [hakataBusStop, canalCityStop, tenjinBusStop],
-          durationMinutes: 15,
-          note: "運賃が最も安いお得ルート",
+          lineName: `${cleanOrigin}〜${cleanDest} 幹線路線バス`,
+          boardAt: `${cleanOrigin} バス停`,
+          alightAt: `${cleanDest}前 バス停`,
+          boardCoords: startCoord,
+          alightCoords: busStopNearDest,
+          path: [startCoord, busMid, busStopNearDest],
+          durationMinutes: Math.max(3, busMin - 3),
+          note: "運賃を抑えやすいバス中心ルート",
         },
         {
           mode: "walk",
           lineName: "徒歩移動",
-          boardAt: `${destination}前 バス停`,
-          alightAt: `${destination} 目的地入口`,
-          boardCoords: tenjinBusStop,
-          alightCoords: tenjinGoal,
-          path: [tenjinBusStop, tenjinGoal],
+          boardAt: `${cleanDest}前 バス停`,
+          alightAt: `${cleanDest} 到着地点`,
+          boardCoords: busStopNearDest,
+          alightCoords: endCoord,
+          path: [busStopNearDest, endCoord],
           durationMinutes: 3,
         },
       ],
     },
     {
       routeId: "C",
-      summary: "JR鹿児島本線 + 地下鉄 乗継",
-      durationMinutes: 15,
-      fareYen: 390,
+      summary: `${cleanOrigin} → ${cleanDest} 1回乗継ルート`,
+      durationMinutes: transferMin,
+      fareYen: transferFare,
       transfers: 1,
       color: "#7c3aed",
       legs: [
         {
           mode: "train",
-          lineName: "JR鹿児島本線（普通）",
-          boardAt: `${origin} 近くのJR駅ホーム`,
-          alightAt: "吉塚駅",
-          boardCoords: hakata,
-          alightCoords: yoshizuka,
-          path: [hakata, yoshizuka],
-          durationMinutes: 4,
+          lineName: `${cleanOrigin}発 連絡線`,
+          boardAt: `${cleanOrigin} 乗車ホーム`,
+          alightAt: `${cleanOrigin}〜${cleanDest} 中間乗換駅`,
+          boardCoords: startCoord,
+          alightCoords: hub1,
+          path: [startCoord, hub1],
+          durationMinutes: Math.max(2, Math.floor(transferMin / 2) - 1),
         },
         {
           mode: "walk",
-          lineName: "連絡通路・乗り換え",
-          boardAt: "JR吉塚駅 改札口",
-          alightAt: "馬出九大病院前駅 改札口",
-          boardCoords: yoshizuka,
-          alightCoords: maidashi,
-          path: [yoshizuka, maidashi],
-          durationMinutes: 4,
-          note: "案内表示に沿って地下鉄駅へ移動",
+          lineName: "乗り換え連絡通路",
+          boardAt: `中間乗換駅 降車口`,
+          alightAt: `乗継路線 乗車口`,
+          boardCoords: hub1,
+          alightCoords: hub2,
+          path: [hub1, hub2],
+          durationMinutes: 3,
+          note: "案内サインに沿って次の路線へ移動",
         },
         {
           mode: "train",
-          lineName: "地下鉄 箱崎線・空港線",
-          boardAt: "馬出九大病院前駅 ホーム",
-          alightAt: `${destination} 地下鉄ホーム`,
-          boardCoords: maidashi,
-          alightCoords: tenjin,
-          path: [maidashi, nakasu, tenjin],
-          durationMinutes: 7,
+          lineName: `${cleanDest}方面 接続線`,
+          boardAt: `乗継路線 ホーム`,
+          alightAt: `${cleanDest} 降車ホーム`,
+          boardCoords: hub2,
+          alightCoords: endCoord,
+          path: [hub2, endCoord],
+          durationMinutes: Math.max(2, Math.ceil(transferMin / 2) - 1),
         },
       ],
     },
@@ -253,7 +340,7 @@ app.post("/api/search", async (req, res) => {
       };
 
     const effectiveApiKey = (apiKey || process.env.GEMINI_API_KEY || "").trim();
-    const candidates = getMockTransitCandidates(
+    const candidates = buildDynamicTransitCandidates(
       origin,
       destination,
       originCoords
