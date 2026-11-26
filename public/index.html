@@ -47,7 +47,7 @@
 </head>
 <body class="text-slate-800 min-h-screen font-sans antialiased selection:bg-sky-100 selection:text-sky-900">
 
-  <!-- ヘッダー（API入力欄なしでスッキリ表示） -->
+  <!-- ヘッダー -->
   <header class="bg-white/95 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-20">
     <div class="max-w-6xl mx-auto px-3.5 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-2">
       <div class="flex items-center gap-2.5 min-w-0">
@@ -206,7 +206,7 @@
       </div>
 
       <div id="emptyState" class="bg-white/90 border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-6 sm:p-10 text-center">
-        <p class="text-slate-600 text-sm leading-relaxed">上のフォームで出発地・目的地を指定し、「ルートとマップを検索」をタップしてください。</p>
+        <p class="text-slate-600 text-sm leading-relaxed">上のフォームで出発地・目的地を指定し、下の「ルートとマップを検索」をタップしてください。</p>
       </div>
 
       <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-8 text-center space-y-3 shadow-sm">
@@ -256,10 +256,41 @@
   <script>
     let map = null;
     let routeLayerGroup = null;
+    let currentTileLayer = null;
+    let usingFallbackTiles = false;
     let currentCandidates = [];
     let currentBestRouteId = "";
     let selectedRouteId = "";
     let currentOriginCoords = null;
+
+    function attachTileLayer(targetMap, useFallback = false) {
+      if (currentTileLayer) {
+        targetMap.removeLayer(currentTileLayer);
+      }
+
+      const tileUrl = useFallback
+        ? "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+        : "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+
+      const attribution = useFallback
+        ? "&copy; OpenStreetMap contributors &copy; CARTO"
+        : "&copy; OpenStreetMap contributors";
+
+      currentTileLayer = L.tileLayer(tileUrl, {
+        attribution,
+        maxZoom: 19,
+        crossOrigin: true,
+      });
+
+      currentTileLayer.on("tileerror", () => {
+        if (!usingFallbackTiles) {
+          usingFallbackTiles = true;
+          attachTileLayer(targetMap, true);
+        }
+      });
+
+      currentTileLayer.addTo(targetMap);
+    }
 
     function initMap() {
       const mapEl = document.getElementById("routeMap");
@@ -271,14 +302,28 @@
       map = L.map("routeMap", {
         tap: false,
       }).setView([33.5915, 130.4095], 14);
-      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "&copy; OpenStreetMap contributors",
-        maxZoom: 19,
-      }).addTo(map);
+
+      attachTileLayer(map, false);
       routeLayerGroup = L.layerGroup().addTo(map);
+
+      if (window.ResizeObserver) {
+        const observer = new ResizeObserver(() => {
+          if (map) {
+            map.invalidateSize({ animate: false });
+          }
+        });
+        observer.observe(mapEl);
+      }
+
+      setTimeout(() => {
+        if (map) map.invalidateSize({ animate: false });
+      }, 250);
     }
 
     window.addEventListener("DOMContentLoaded", initMap);
+    window.addEventListener("load", () => {
+      if (map) map.invalidateSize({ animate: false });
+    });
 
     function createPinIcon(color, label) {
       return L.divIcon({
@@ -583,7 +628,7 @@
         resultContainer.classList.remove("hidden");
 
         setTimeout(() => {
-          if (map) map.invalidateSize();
+          if (map) map.invalidateSize({ animate: false });
           const best = currentCandidates.find((c) => c.routeId === currentBestRouteId) || currentCandidates[0];
           renderRouteOnMap(best, false);
           if (window.innerWidth < 1024) {
