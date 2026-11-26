@@ -17,9 +17,10 @@ app.get("/", (_req, res) => {
 
 type Preference = "shortest" | "cheapest";
 type LatLng = [number, number];
+type TransportMode = "train" | "bus" | "walk" | "flight";
 
 interface RouteLeg {
-  mode: "train" | "bus" | "walk";
+  mode: TransportMode;
   lineName: string;
   boardAt: string;
   alightAt: string;
@@ -61,15 +62,21 @@ const KNOWN_PLACES: Record<string, LatLng> = {
   大阪駅: [34.7024, 135.4959],
   梅田駅: [34.7055, 135.4983],
   新大阪駅: [34.7334, 135.5003],
+  関西空港: [34.432, 135.2304],
+  伊丹空港: [34.7855, 135.4382],
   なんば駅: [34.6629, 135.5013],
   京都駅: [34.9858, 135.7588],
   神戸三宮駅: [34.6946, 135.1955],
   名古屋駅: [35.1709, 136.8816],
+  中部国際空港: [34.8584, 136.8054],
   東京駅: [35.6812, 139.7671],
+  羽田空港: [35.5494, 139.7798],
+  成田空港: [35.7719, 140.3929],
   新宿駅: [35.6896, 139.7006],
   渋谷駅: [35.658, 139.7016],
   横浜駅: [35.4658, 139.6223],
   仙台駅: [38.2601, 140.8817],
+  新千歳空港: [42.7752, 141.6924],
   札幌駅: [43.0687, 141.3508],
   那覇空港: [26.2064, 127.6465],
 };
@@ -102,7 +109,6 @@ function resolvePlaceCoords(place: string, fallbackCoords?: LatLng): LatLng {
     }
   }
 
-  // 日本列島（北緯31〜43度・東経130〜141度）の範囲で入力文字列ごとに異なる地点へ配置
   const h = hashText(normalized);
   const latOffset = (((h % 1000) / 1000) - 0.35) * 8.0;
   const lngOffset = ((((Math.floor(h / 1000)) % 1000) / 1000) - 0.3) * 9.0;
@@ -141,7 +147,8 @@ function calculateDistanceKm(a: LatLng, b: LatLng): number {
 function buildDynamicTransitCandidates(
   origin: string,
   destination: string,
-  originCoords?: LatLng
+  originCoords?: LatLng,
+  includeFlight = true
 ): RouteCandidate[] {
   const cleanOrigin = origin.trim() || "出発地";
   const cleanDest = destination.trim() || "目的地";
@@ -163,7 +170,6 @@ function buildDynamicTransitCandidates(
   const gpsPrefix = originCoords ? "GPS現在地周辺から" : "";
 
   if (isLongDistance) {
-    // 遠距離（20km以上）：新幹線・特急 / 高速バス / 在来線乗継
     const shinkansenMin = Math.max(35, Math.round(distKm * 0.32) + (seed % 10));
     const highwayBusMin = Math.max(shinkansenMin + 45, Math.round(distKm * 0.78) + 15);
     const localComboMin = Math.max(shinkansenMin + 25, Math.round(distKm * 0.55) + 10);
@@ -172,70 +178,124 @@ function buildDynamicTransitCandidates(
     const highwayBusFare = Math.max(900, Math.round((shinkansenFare * 0.55) / 100) * 100);
     const localComboFare = Math.max(1000, Math.round((shinkansenFare * 0.78) / 100) * 100);
 
-    return [
-      {
+    const candidates: RouteCandidate[] = [];
+
+    if (includeFlight) {
+      const flightAirMin = Math.max(45, Math.min(180, Math.round(distKm * 0.11) + 40));
+      const accessMin = 20;
+      const totalFlightMin = flightAirMin + accessMin * 2;
+      const flightFare = Math.max(7800, Math.round((7500 + distKm * 14) / 500) * 500);
+
+      candidates.push({
         routeId: "A",
-        summary: `${cleanOrigin} → ${cleanDest} 新幹線・特急ルート`,
-        durationMinutes: shinkansenMin,
-        fareYen: shinkansenFare,
-        transfers: 1,
+        summary: `${cleanOrigin} → ${cleanDest} 飛行機ルート`,
+        durationMinutes: totalFlightMin,
+        fareYen: flightFare,
+        transfers: 2,
         color: "#0284c7",
         legs: [
           {
             mode: "train",
-            lineName: `${cleanOrigin}発 アクセス線`,
-            boardAt: `${cleanOrigin} 最寄り駅・ホーム`,
-            alightAt: `${cleanOrigin} 幹線ターミナル駅`,
+            lineName: `出発地 → 出発空港 アクセス線`,
+            boardAt: `${cleanOrigin} 最寄り駅・のりば`,
+            alightAt: `出発空港 ターミナル`,
             boardCoords: startCoord,
             alightCoords: mid1,
             path: [startCoord, mid1],
-            durationMinutes: 12,
+            durationMinutes: accessMin,
+            note: `${gpsPrefix}保安検査（出発20〜30分前目安）に余裕を持って移動`,
+          },
+          {
+            mode: "flight",
+            lineName: `国内線・航空便（${cleanDest}方面空港行き）`,
+            boardAt: `出発空港 搭乗口`,
+            alightAt: `到着空港 到着ロビー`,
+            boardCoords: mid1,
+            alightCoords: mid2,
+            path: [mid1, mid2],
+            durationMinutes: flightAirMin,
+            note: "フライト時間（搭乗・手荷物受取を含めた目安）",
           },
           {
             mode: "train",
-            lineName: `新幹線・特急（${cleanDest}方面）`,
-            boardAt: `${cleanOrigin} 幹線ターミナル駅 ホーム`,
-            alightAt: `${cleanDest} 到着駅 ホーム`,
-            boardCoords: mid1,
-            alightCoords: endCoord,
-            path: [mid1, mid2, endCoord],
-            durationMinutes: Math.max(20, shinkansenMin - 12),
-            note: `${gpsPrefix}${cleanDest}方面へ速達で向かう時間重視ルート`,
-          },
-        ],
-      },
-      {
-        routeId: "B",
-        summary: `${cleanOrigin} → ${cleanDest} 高速バスルート`,
-        durationMinutes: highwayBusMin,
-        fareYen: highwayBusFare,
-        transfers: 0,
-        color: "#059669",
-        legs: [
-          {
-            mode: "bus",
-            lineName: `${cleanOrigin}〜${cleanDest} 高速路線バス`,
-            boardAt: `${cleanOrigin} 高速バスのりば`,
-            alightAt: `${cleanDest} バスターミナル`,
-            boardCoords: startCoord,
-            alightCoords: busStopNearDest,
-            path: [startCoord, busMid, busStopNearDest],
-            durationMinutes: Math.max(20, highwayBusMin - 5),
-            note: "運賃を抑えやすく乗り換えなしで移動できるルート",
-          },
-          {
-            mode: "walk",
-            lineName: "徒歩移動",
-            boardAt: `${cleanDest} バスターミナル`,
+            lineName: `到着空港 → ${cleanDest} アクセス連絡`,
+            boardAt: `到着空港 駅・バスのりば`,
             alightAt: `${cleanDest} 到着地点`,
-            boardCoords: busStopNearDest,
+            boardCoords: mid2,
             alightCoords: endCoord,
-            path: [busStopNearDest, endCoord],
-            durationMinutes: 5,
+            path: [mid2, endCoord],
+            durationMinutes: accessMin,
           },
         ],
-      },
-      {
+      });
+    }
+
+    candidates.push({
+      routeId: includeFlight ? "B" : "A",
+      summary: `${cleanOrigin} → ${cleanDest} 新幹線・特急ルート`,
+      durationMinutes: shinkansenMin,
+      fareYen: shinkansenFare,
+      transfers: 1,
+      color: "#2563eb",
+      legs: [
+        {
+          mode: "train",
+          lineName: `${cleanOrigin}発 アクセス線`,
+          boardAt: `${cleanOrigin} 最寄り駅・ホーム`,
+          alightAt: `${cleanOrigin} 幹線ターミナル駅`,
+          boardCoords: startCoord,
+          alightCoords: mid1,
+          path: [startCoord, mid1],
+          durationMinutes: 12,
+        },
+        {
+          mode: "train",
+          lineName: `新幹線・特急（${cleanDest}方面）`,
+          boardAt: `${cleanOrigin} 幹線ターミナル駅 ホーム`,
+          alightAt: `${cleanDest} 到着駅 ホーム`,
+          boardCoords: mid1,
+          alightCoords: endCoord,
+          path: [mid1, mid2, endCoord],
+          durationMinutes: Math.max(20, shinkansenMin - 12),
+          note: `${gpsPrefix}${cleanDest}方面へ速達で向かう鉄道ルート`,
+        },
+      ],
+    });
+
+    candidates.push({
+      routeId: includeFlight ? "C" : "B",
+      summary: `${cleanOrigin} → ${cleanDest} 高速バスルート`,
+      durationMinutes: highwayBusMin,
+      fareYen: highwayBusFare,
+      transfers: 0,
+      color: "#059669",
+      legs: [
+        {
+          mode: "bus",
+          lineName: `${cleanOrigin}〜${cleanDest} 高速路線バス`,
+          boardAt: `${cleanOrigin} 高速バスのりば`,
+          alightAt: `${cleanDest} バスターミナル`,
+          boardCoords: startCoord,
+          alightCoords: busStopNearDest,
+          path: [startCoord, busMid, busStopNearDest],
+          durationMinutes: Math.max(20, highwayBusMin - 5),
+          note: "運賃を抑えやすく乗り換えなしで移動できるルート",
+        },
+        {
+          mode: "walk",
+          lineName: "徒歩移動",
+          boardAt: `${cleanDest} バスターミナル`,
+          alightAt: `${cleanDest} 到着地点`,
+          boardCoords: busStopNearDest,
+          alightCoords: endCoord,
+          path: [busStopNearDest, endCoord],
+          durationMinutes: 5,
+        },
+      ],
+    });
+
+    if (!includeFlight) {
+      candidates.push({
         routeId: "C",
         summary: `${cleanOrigin} → ${cleanDest} 在来線・急行乗継ルート`,
         durationMinutes: localComboMin,
@@ -274,11 +334,12 @@ function buildDynamicTransitCandidates(
             durationMinutes: Math.max(15, Math.ceil(localComboMin * 0.45)),
           },
         ],
-      },
-    ];
+      });
+    }
+
+    return candidates;
   }
 
-  // 近距離（20km未満）：都市鉄道・地下鉄 / 路線バス / 乗継
   const fastMin = Math.max(4, Math.round(distKm * 3.2) + (seed % 3));
   const busMin = Math.max(fastMin + 4, Math.round(distKm * 4.5) + 3);
   const transferMin = Math.max(fastMin + 3, Math.round(distKm * 4.0) + 2);
@@ -469,21 +530,31 @@ function buildFallbackExplanation(
 
 app.post("/api/search", async (req, res) => {
   try {
-    const { origin, destination, preference, userNote, apiKey, originCoords } =
-      req.body as {
-        origin: string;
-        destination: string;
-        preference: Preference;
-        userNote?: string;
-        apiKey?: string;
-        originCoords?: LatLng;
-      };
+    const {
+      origin,
+      destination,
+      preference,
+      userNote,
+      apiKey,
+      originCoords,
+      includeFlight,
+    } = req.body as {
+      origin: string;
+      destination: string;
+      preference: Preference;
+      userNote?: string;
+      apiKey?: string;
+      originCoords?: LatLng;
+      includeFlight?: boolean;
+    };
 
     const effectiveApiKey = (apiKey || process.env.GEMINI_API_KEY || "").trim();
+    const useFlight = includeFlight !== false;
     const candidates = buildDynamicTransitCandidates(
       origin,
       destination,
-      originCoords
+      originCoords,
+      useFlight
     );
 
     const sorted = [...candidates].sort((a, b) =>
@@ -516,7 +587,7 @@ app.post("/api/search", async (req, res) => {
       }));
 
       const prompt = [
-        `出発:${origin} / 到着:${destination} / 優先:${prefLabel} / 要望:${userNote || "なし"} / 最適ID:${bestRoute.routeId}`,
+        `出発:${origin} / 到着:${destination} / 優先:${prefLabel} / 飛行機:${useFlight ? "利用可" : "除外"} / 要望:${userNote || "なし"} / 最適ID:${bestRoute.routeId}`,
         `候補:${JSON.stringify(compactCandidates)}`,
         `150〜250字の日本語Markdownで簡潔に案内してください。`,
         `1) おすすめルートと理由 2) 乗車場所・路線・降車場所 3) 他ルートとの一言比較。`,

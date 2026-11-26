@@ -44,7 +44,7 @@
         <div class="truncate">
           <div class="flex items-center gap-1.5">
             <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 truncate">Transit AI</h1>
-            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 shrink-0">GPS対応</span>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 shrink-0">GPS・空路対応</span>
           </div>
           <p class="text-[11px] sm:text-xs text-slate-500 truncate">乗降ポイント＆AI 経路案内</p>
         </div>
@@ -66,7 +66,7 @@
             <span class="w-2 h-2 rounded-full bg-sky-500"></span>
             ルート検索条件
           </h2>
-          <span class="text-xs text-slate-400">公共交通機関</span>
+          <span class="text-xs text-slate-400">鉄道・バス・空路</span>
         </div>
 
         <form id="searchForm" class="space-y-3.5">
@@ -126,6 +126,25 @@
             </div>
           </div>
 
+          <!-- 飛行機の利用選択（する / しない） -->
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">飛行機の利用</label>
+            <div class="grid grid-cols-2 gap-2.5">
+              <label class="cursor-pointer">
+                <input type="radio" name="flightOption" value="yes" checked class="peer sr-only" />
+                <div class="text-center py-2.5 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 text-sm font-bold peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-800 transition">
+                  ✈️ 飛行機を使う
+                </div>
+              </label>
+              <label class="cursor-pointer">
+                <input type="radio" name="flightOption" value="no" class="peer sr-only" />
+                <div class="text-center py-2.5 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 text-sm font-bold peer-checked:border-slate-600 peer-checked:bg-slate-200/80 peer-checked:text-slate-900 transition">
+                  🚫 飛行機を使わない
+                </div>
+              </label>
+            </div>
+          </div>
+
           <!-- 優先モード -->
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1.5">優先モード</label>
@@ -171,7 +190,7 @@
     <!-- 右カラム：AI解説・候補ルート -->
     <section id="resultsSection" class="lg:col-span-8 space-y-4 sm:space-y-6">
       <div id="emptyState" class="bg-white/90 border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-6 sm:p-10 text-center">
-        <p class="text-slate-600 text-sm leading-relaxed">出発地と目的地を指定して、「ルートを検索」をタップしてください。</p>
+        <p class="text-slate-600 text-sm leading-relaxed">出発地と目的地、飛行機の利用有無を指定して、「ルートを検索」をタップしてください。</p>
       </div>
 
       <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-8 text-center space-y-3 shadow-sm">
@@ -425,6 +444,9 @@
     }
 
     function getModeBadge(mode) {
+      if (mode === "flight") {
+        return '<span class="px-2 py-0.5 text-xs font-bold rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200">✈️ 飛行機</span>';
+      }
       if (mode === "train") {
         return '<span class="px-2 py-0.5 text-xs font-bold rounded-md bg-sky-50 text-sky-800 border border-sky-200">🚃 電車</span>';
       }
@@ -530,6 +552,7 @@
 
       const origin = originInput.value.trim();
       const destination = destInput.value.trim();
+      const includeFlight = document.querySelector('input[name="flightOption"]:checked').value === "yes";
       const preference = document.querySelector('input[name="preference"]:checked').value;
       const userNote = document.getElementById("userNote").value.trim();
 
@@ -546,6 +569,7 @@
           body: JSON.stringify({
             origin,
             destination,
+            includeFlight,
             preference,
             userNote,
             originCoords: currentOriginCoords,
