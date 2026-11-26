@@ -52,12 +52,26 @@ const KNOWN_PLACES: Record<string, LatLng> = {
   福岡空港: [33.5955, 130.4446],
   大橋駅: [33.5604, 130.4328],
   西新駅: [33.5818, 130.3583],
+  小倉駅: [33.8868, 130.8825],
+  熊本駅: [32.7898, 130.6894],
+  長崎駅: [32.7626, 130.8705],
+  鹿児島中央駅: [31.5838, 130.5418],
+  広島駅: [34.3977, 132.4754],
+  岡山駅: [34.6662, 133.9182],
+  大阪駅: [34.7024, 135.4959],
+  梅田駅: [34.7055, 135.4983],
+  新大阪駅: [34.7334, 135.5003],
+  なんば駅: [34.6629, 135.5013],
+  京都駅: [34.9858, 135.7588],
+  神戸三宮駅: [34.6946, 135.1955],
+  名古屋駅: [35.1709, 136.8816],
   東京駅: [35.6812, 139.7671],
   新宿駅: [35.6896, 139.7006],
   渋谷駅: [35.658, 139.7016],
-  大阪駅: [34.7024, 135.4959],
-  梅田駅: [34.7055, 135.4983],
-  なんば駅: [34.6629, 135.5013],
+  横浜駅: [35.4658, 139.6223],
+  仙台駅: [38.2601, 140.8817],
+  札幌駅: [43.0687, 141.3508],
+  那覇空港: [26.2064, 127.6465],
 };
 
 function hashText(text: string): number {
@@ -88,12 +102,13 @@ function resolvePlaceCoords(place: string, fallbackCoords?: LatLng): LatLng {
     }
   }
 
+  // 日本列島（北緯31〜43度・東経130〜141度）の範囲で入力文字列ごとに異なる地点へ配置
   const h = hashText(normalized);
-  const latOffset = (((h % 1000) / 1000) - 0.5) * 0.04;
-  const lngOffset = ((((Math.floor(h / 1000)) % 1000) / 1000) - 0.5) * 0.05;
+  const latOffset = (((h % 1000) / 1000) - 0.35) * 8.0;
+  const lngOffset = ((((Math.floor(h / 1000)) % 1000) / 1000) - 0.3) * 9.0;
   return [
-    Number((33.5905 + latOffset).toFixed(5)),
-    Number((130.4095 + lngOffset).toFixed(5)),
+    Number((33.59 + latOffset).toFixed(5)),
+    Number((130.42 + lngOffset).toFixed(5)),
   ];
 }
 
@@ -135,8 +150,135 @@ function buildDynamicTransitCandidates(
   const endCoord = resolvePlaceCoords(cleanDest);
 
   const distKm = Math.max(0.8, calculateDistanceKm(startCoord, endCoord));
+  const isLongDistance = distKm >= 20;
   const seed = hashText(`${cleanOrigin}->${cleanDest}`);
 
+  const mid1 = interpolatePoint(startCoord, endCoord, 0.33, 0.015, -0.015);
+  const mid2 = interpolatePoint(startCoord, endCoord, 0.67, -0.015, 0.015);
+  const busMid = interpolatePoint(startCoord, endCoord, 0.5, -0.025, 0.02);
+  const busStopNearDest = interpolatePoint(startCoord, endCoord, 0.92, -0.005, 0.005);
+  const hub1 = interpolatePoint(startCoord, endCoord, 0.42, 0.02, 0.02);
+  const hub2 = interpolatePoint(startCoord, endCoord, 0.48, 0.025, 0.025);
+
+  const gpsPrefix = originCoords ? "GPS現在地周辺から" : "";
+
+  if (isLongDistance) {
+    // 遠距離（20km以上）：新幹線・特急 / 高速バス / 在来線乗継
+    const shinkansenMin = Math.max(35, Math.round(distKm * 0.32) + (seed % 10));
+    const highwayBusMin = Math.max(shinkansenMin + 45, Math.round(distKm * 0.78) + 15);
+    const localComboMin = Math.max(shinkansenMin + 25, Math.round(distKm * 0.55) + 10);
+
+    const shinkansenFare = Math.max(1200, Math.round((900 + distKm * 16) / 100) * 100);
+    const highwayBusFare = Math.max(900, Math.round((shinkansenFare * 0.55) / 100) * 100);
+    const localComboFare = Math.max(1000, Math.round((shinkansenFare * 0.78) / 100) * 100);
+
+    return [
+      {
+        routeId: "A",
+        summary: `${cleanOrigin} → ${cleanDest} 新幹線・特急ルート`,
+        durationMinutes: shinkansenMin,
+        fareYen: shinkansenFare,
+        transfers: 1,
+        color: "#0284c7",
+        legs: [
+          {
+            mode: "train",
+            lineName: `${cleanOrigin}発 アクセス線`,
+            boardAt: `${cleanOrigin} 最寄り駅・ホーム`,
+            alightAt: `${cleanOrigin} 幹線ターミナル駅`,
+            boardCoords: startCoord,
+            alightCoords: mid1,
+            path: [startCoord, mid1],
+            durationMinutes: 12,
+          },
+          {
+            mode: "train",
+            lineName: `新幹線・特急（${cleanDest}方面）`,
+            boardAt: `${cleanOrigin} 幹線ターミナル駅 ホーム`,
+            alightAt: `${cleanDest} 到着駅 ホーム`,
+            boardCoords: mid1,
+            alightCoords: endCoord,
+            path: [mid1, mid2, endCoord],
+            durationMinutes: Math.max(20, shinkansenMin - 12),
+            note: `${gpsPrefix}${cleanDest}方面へ速達で向かう時間重視ルート`,
+          },
+        ],
+      },
+      {
+        routeId: "B",
+        summary: `${cleanOrigin} → ${cleanDest} 高速バスルート`,
+        durationMinutes: highwayBusMin,
+        fareYen: highwayBusFare,
+        transfers: 0,
+        color: "#059669",
+        legs: [
+          {
+            mode: "bus",
+            lineName: `${cleanOrigin}〜${cleanDest} 高速路線バス`,
+            boardAt: `${cleanOrigin} 高速バスのりば`,
+            alightAt: `${cleanDest} バスターミナル`,
+            boardCoords: startCoord,
+            alightCoords: busStopNearDest,
+            path: [startCoord, busMid, busStopNearDest],
+            durationMinutes: Math.max(20, highwayBusMin - 5),
+            note: "運賃を抑えやすく乗り換えなしで移動できるルート",
+          },
+          {
+            mode: "walk",
+            lineName: "徒歩移動",
+            boardAt: `${cleanDest} バスターミナル`,
+            alightAt: `${cleanDest} 到着地点`,
+            boardCoords: busStopNearDest,
+            alightCoords: endCoord,
+            path: [busStopNearDest, endCoord],
+            durationMinutes: 5,
+          },
+        ],
+      },
+      {
+        routeId: "C",
+        summary: `${cleanOrigin} → ${cleanDest} 在来線・急行乗継ルート`,
+        durationMinutes: localComboMin,
+        fareYen: localComboFare,
+        transfers: 2,
+        color: "#7c3aed",
+        legs: [
+          {
+            mode: "train",
+            lineName: `${cleanOrigin}発 広域幹線`,
+            boardAt: `${cleanOrigin} 乗車ホーム`,
+            alightAt: `中間ジャンクション駅`,
+            boardCoords: startCoord,
+            alightCoords: hub1,
+            path: [startCoord, hub1],
+            durationMinutes: Math.max(15, Math.floor(localComboMin * 0.45)),
+          },
+          {
+            mode: "walk",
+            lineName: "駅構内乗り換え",
+            boardAt: `中間ジャンクション駅 降車ホーム`,
+            alightAt: `連絡線 乗車ホーム`,
+            boardCoords: hub1,
+            alightCoords: hub2,
+            path: [hub1, hub2],
+            durationMinutes: 7,
+          },
+          {
+            mode: "train",
+            lineName: `${cleanDest}行き 連絡線`,
+            boardAt: `連絡線 ホーム`,
+            alightAt: `${cleanDest} 降車ホーム`,
+            boardCoords: hub2,
+            alightCoords: endCoord,
+            path: [hub2, endCoord],
+            durationMinutes: Math.max(15, Math.ceil(localComboMin * 0.45)),
+          },
+        ],
+      },
+    ];
+  }
+
+  // 近距離（20km未満）：都市鉄道・地下鉄 / 路線バス / 乗継
   const fastMin = Math.max(4, Math.round(distKm * 3.2) + (seed % 3));
   const busMin = Math.max(fastMin + 4, Math.round(distKm * 4.5) + 3);
   const transferMin = Math.max(fastMin + 3, Math.round(distKm * 4.0) + 2);
@@ -144,17 +286,6 @@ function buildDynamicTransitCandidates(
   const fastFare = Math.max(180, Math.round((160 + distKm * 45) / 10) * 10);
   const busFare = Math.max(150, fastFare - 40);
   const transferFare = fastFare + 90;
-
-  const mid1Fast = interpolatePoint(startCoord, endCoord, 0.35, 0.002, -0.002);
-  const mid2Fast = interpolatePoint(startCoord, endCoord, 0.7, -0.0015, 0.0015);
-
-  const busMid = interpolatePoint(startCoord, endCoord, 0.5, -0.004, 0.003);
-  const busStopNearDest = interpolatePoint(startCoord, endCoord, 0.9, -0.001, 0.001);
-
-  const hub1 = interpolatePoint(startCoord, endCoord, 0.4, 0.005, 0.004);
-  const hub2 = interpolatePoint(startCoord, endCoord, 0.45, 0.006, 0.005);
-
-  const gpsPrefix = originCoords ? "GPS現在地周辺から" : "";
 
   return [
     {
@@ -172,7 +303,7 @@ function buildDynamicTransitCandidates(
           alightAt: `${cleanDest} 最寄り駅・ホーム`,
           boardCoords: startCoord,
           alightCoords: endCoord,
-          path: [startCoord, mid1Fast, mid2Fast, endCoord],
+          path: [startCoord, mid1, mid2, endCoord],
           durationMinutes: fastMin,
           note: `${gpsPrefix}${cleanDest}へ乗り換えなしで向かう最短ルート`,
         },
