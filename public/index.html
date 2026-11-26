@@ -419,20 +419,20 @@
       gpsStatus.classList.add("hidden");
     });
 
-    async function reverseGeocodeToAddress(lat, lng) {
+    async function reverseGeocodeNominatim(lat, lng) {
       const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
         lat
-      )}&lon=${encodeURIComponent(lng)}&accept-language=ja&addressdetails=1`;
+      )}&lon=${encodeURIComponent(lng)}&accept-language=ja&addressdetails=1&zoom=18`;
 
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 4000);
+      const timer = setTimeout(() => controller.abort(), 3500);
 
       try {
         const res = await fetch(url, {
           signal: controller.signal,
           headers: { Accept: "application/json" },
         });
-        if (!res.ok) return null;
+        if (!res.ok) return "";
 
         const data = await res.json();
         const addr = data.address || {};
@@ -445,27 +445,84 @@
           addr.village ||
           addr.county ||
           "";
-        const suburb =
-          addr.suburb ||
-          addr.neighbourhood ||
-          addr.quarter ||
-          addr.road ||
-          "";
-        const houseNumber = addr.house_number || "";
+        const townOrBlock = [
+          addr.city_district,
+          addr.suburb,
+          addr.quarter,
+          addr.neighbourhood,
+          addr.road,
+          addr.house_number,
+        ]
+          .filter(Boolean)
+          .join("");
 
-        const joined = `${prefecture}${city}${suburb}${houseNumber}`.trim();
-        if (joined) {
-          return joined;
-        }
-        if (typeof data.display_name === "string" && data.display_name.trim()) {
-          return data.display_name.split(",")[0].trim();
-        }
-        return null;
+        return `${prefecture}${city}${townOrBlock}`.trim();
       } catch (_err) {
-        return null;
+        return "";
       } finally {
         clearTimeout(timer);
       }
+    }
+
+    async function reverseGeocodeGsi(lat, lng) {
+      const url = `https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${encodeURIComponent(
+        lat
+      )}&lon=${encodeURIComponent(lng)}`;
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3500);
+
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) return "";
+
+        const data = await res.json();
+        const results = data?.results;
+        if (!results || !results.muniCd) return "";
+
+        const muniCd = String(results.muniCd).padStart(5, "0");
+        const townName = results.lv01Nm || "";
+        const prefCode = muniCd.slice(0, 2);
+
+        const prefMap = {
+          "01": "北海道", "02": "青森県", "03": "岩手県", "04": "宮城県", "05": "秋田県",
+          "06": "山形県", "07": "福島県", "08": "茨城県", "09": "栃木県", "10": "群馬県",
+          "11": "埼玉県", "12": "千葉県", "13": "東京都", "14": "神奈川県", "15": "新潟県",
+          "16": "富山県", "17": "石川県", "18": "福井県", "19": "山梨県", "20": "長野県",
+          "21": "岐阜県", "22": "静岡県", "23": "愛知県", "24": "三重県", "25": "滋賀県",
+          "26": "京都府", "27": "大阪府", "28": "兵庫県", "29": "奈良県", "30": "和歌山県",
+          "31": "鳥取県", "32": "島根県", "33": "岡山県", "34": "広島県", "35": "山口県",
+          "36": "徳島県", "37": "香川県", "38": "愛媛県", "39": "高知県", "40": "福岡県",
+          "41": "佐賀県", "42": "長崎県", "43": "熊本県", "44": "大分県", "45": "宮崎県",
+          "46": "鹿児島県", "47": "沖縄県",
+        };
+
+        const prefName = prefMap[prefCode] || "";
+        return `${prefName}${townName}`.trim();
+      } catch (_err) {
+        return "";
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+
+    function endsWithWardOnly(addr) {
+      return /[都道府県市区郡]$/.test(addr.trim());
+    }
+
+    async function reverseGeocodeToAddress(lat, lng) {
+      const [osmAddr, gsiAddr] = await Promise.all([
+        reverseGeocodeNominatim(lat, lng),
+        reverseGeocodeGsi(lat, lng),
+      ]);
+
+      if (gsiAddr && (!osmAddr || endsWithWardOnly(osmAddr) || gsiAddr.length > osmAddr.length)) {
+        return gsiAddr;
+      }
+      if (osmAddr) {
+        return osmAddr;
+      }
+      return null;
     }
 
     gpsBtn.addEventListener("click", () => {
