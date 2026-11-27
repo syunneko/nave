@@ -80,3 +80,42 @@ body {
 .char-speaking {
   animation: charTalk 0.55s ease-in-out infinite;
 }
+
+/* スプライトシート（4列×3行）で歩きながら登場 */
+.walk-stage-enter {
+  animation: walkSlideIn 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes walkSlideIn {
+  0% {
+    transform: translateX(-130%);
+    opacity: 0.2;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0%);
+    opacity: 1;
+  }
+}
+
+.walk-sprite {
+  width: 128px;
+  height: 128px;
+  background-image: url("./DEMO-move.png");
+  background-size: 400% 300%;
+  background-position: 0% 0%;
+  background-repeat: no-repeat;
+  mix-blend-mode: screen;
+  animation: walkCols 0.32s steps(4) infinite;
+}
+
+@keyframes walkCols {
+  from {
+    background-position-x: 0%;
+  }
+  to {
+    background-position-x: 133.3333%;
+  }
+}

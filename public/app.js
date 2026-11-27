@@ -11,6 +11,8 @@ let handsFreeEnabled = false;
 let recognition = null;
 let isListening = false;
 let currentMode = "voice"; // "voice" | "input"
+let walkRowTimer = null;
+let walkFinishTimer = null;
 
 let searchSettings = {
   includeFlight: true,
@@ -22,6 +24,50 @@ const MODE_BADGE = {
   train: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-sky-50 text-sky-800 border border-sky-200">🚃 電車</span>',
   bus: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-amber-50 text-amber-800 border border-amber-200">🚌 バス</span>',
   walk: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>',
+};
+
+// 最初の登場シーン：スプライトシート(4x3)で歩いて登場し、立ち絵へ切り替え
+function playWalkEntrance() {
+  clearTimeout(walkRowTimer);
+  clearTimeout(walkFinishTimer);
+
+  const walkStage = $("walkStage");
+  const walkSprite = $("walkSprite");
+  const avatarWrap = $("avatarWrap");
+  const badge = $("charStateBadge");
+
+  avatarWrap.classList.add("hidden");
+  walkStage.classList.remove("hidden", "walk-stage-enter");
+  void walkStage.offsetWidth;
+  walkStage.classList.add("walk-stage-enter");
+
+  // 3行（0%, 50%, 100%）を順に切り替え
+  walkSprite.style.backgroundPositionY = "0%";
+  badge.textContent = "👣 登場中";
+  badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
+  $("charBubble").textContent = "てくてく…やってきたよ！行きたい場所を話しかけてね！";
+
+  walkRowTimer = setTimeout(() => {
+    walkSprite.style.backgroundPositionY = "50%";
+    walkRowTimer = setTimeout(() => {
+      walkSprite.style.backgroundPositionY = "100%";
+    }, 520);
+  }, 520);
+
+  walkFinishTimer = setTimeout(() => {
+    walkStage.classList.add("hidden");
+    walkStage.classList.remove("walk-stage-enter");
+    avatarWrap.classList.remove("hidden");
+    if (!isListening && !isSpeaking) {
+      setCharacterState("idle", "こんにちは！行きたい場所を話しかけてね！");
+    }
+  }, 1600);
+}
+
+$("avatarWrap").onclick = () => {
+  if (!isListening && !isSpeaking) {
+    playWalkEntrance();
+  }
 };
 
 // 音声モード画面 / 文字入力モード画面 の切り替え
@@ -125,6 +171,7 @@ $("saveSettingsBtn").onclick = () => {
 };
 
 updateSettingsSummary();
+playWalkEntrance();
 
 function sayShortPhrase(phrase, continueListeningAfter = false) {
   if (!("speechSynthesis" in window) || !phrase) return;
@@ -264,6 +311,10 @@ function parseVoice(text) {
 
 function setListening(active) {
   isListening = active;
+  if (active) {
+    $("walkStage").classList.add("hidden");
+    $("avatarWrap").classList.remove("hidden");
+  }
   $("voiceSearchBtn").classList.toggle("mic-listening", active);
   $("voiceSearchBtn").textContent = active ? "⏹️ 聞き取りを止める" : "🎙️ ボタンを押して話しかける";
 
