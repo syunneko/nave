@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Transit AI - スマート経路案内</title>
+  <title>Transit AI - 音声対応スマート経路案内</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
@@ -30,12 +30,20 @@
     .speaking-dot:nth-child(2) { animation-delay: 0.2s; }
     .speaking-dot:nth-child(3) { animation-delay: 0.4s; }
 
+    @keyframes micPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.45); }
+      50% { box-shadow: 0 0 0 10px rgba(225, 29, 72, 0); }
+    }
+    .mic-listening {
+      animation: micPulse 1.4s infinite;
+    }
+
     .mobile-bottom-bar {
       padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
     }
     @media (max-width: 1023px) {
       main {
-        padding-bottom: calc(5.8rem + env(safe-area-inset-bottom));
+        padding-bottom: calc(6.2rem + env(safe-area-inset-bottom));
       }
     }
   </style>
@@ -54,9 +62,9 @@
         <div class="truncate">
           <div class="flex items-center gap-1.5">
             <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 truncate">Transit AI</h1>
-            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 shrink-0">GPS・空路対応</span>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 shrink-0">音声・GPS対応</span>
           </div>
-          <p class="text-[11px] sm:text-xs text-slate-500 truncate">乗降ポイント＆AI 経路案内</p>
+          <p class="text-[11px] sm:text-xs text-slate-500 truncate">話しかけて検索＆AI 経路案内</p>
         </div>
       </div>
 
@@ -70,8 +78,31 @@
     
     <!-- 左カラム：検索パネル -->
     <section class="lg:col-span-4 space-y-4 lg:sticky lg:top-24">
-      <div class="bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm">
-        <div class="flex items-center justify-between mb-3.5">
+      <div class="bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+        
+        <!-- 音声検索カード -->
+        <div class="bg-gradient-to-r from-indigo-50 via-sky-50 to-blue-50 border border-sky-200 rounded-2xl p-3.5">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <div>
+              <p class="text-xs font-extrabold text-slate-900">🎙️ 音声でルート検索</p>
+              <p class="text-[11px] text-slate-600">例：「今いるところから東京駅に行く最短ルートは？」</p>
+            </div>
+            <button
+              type="button"
+              id="voiceSearchBtn"
+              class="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 active:scale-95 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+            >
+              <span id="voiceBtnIcon">🎙️</span>
+              <span id="voiceBtnText">話しかける</span>
+            </button>
+          </div>
+          <div id="voiceTranscriptBox" class="hidden mt-2 bg-white/95 border border-sky-200 rounded-xl px-3 py-2 text-xs text-slate-800">
+            <span id="voiceStatusLabel" class="font-bold text-sky-700 block mb-0.5">聞き取り中...</span>
+            <p id="voiceTranscriptText" class="font-medium text-slate-900 leading-relaxed"></p>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between">
           <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
             <span class="w-2 h-2 rounded-full bg-sky-500"></span>
             ルート検索条件
@@ -199,8 +230,9 @@
 
     <!-- 右カラム：AI解説・候補ルート -->
     <section id="resultsSection" class="lg:col-span-8 space-y-4 sm:space-y-6">
-      <div id="emptyState" class="bg-white/90 border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-6 sm:p-10 text-center">
-        <p class="text-slate-600 text-sm leading-relaxed">出発地と目的地、飛行機の利用有無を指定して、「ルートを検索」をタップしてください。</p>
+      <div id="emptyState" class="bg-white/90 border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-6 sm:p-10 text-center space-y-2">
+        <p class="text-slate-700 font-bold text-sm">「🎙️ 話しかける」で音声検索、またはフォームから検索できます</p>
+        <p class="text-slate-500 text-xs">例：「今いるところから東京駅に行く最短ルートは？」「博多駅から大阪駅まで飛行機なしで安く行きたい」</p>
       </div>
 
       <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-8 text-center space-y-3 shadow-sm">
@@ -228,7 +260,7 @@
                     <span>案内中</span>
                   </span>
                 </div>
-                <p class="text-xs text-slate-500">あなたに向けて分かりやすくご案内します</p>
+                <p class="text-xs text-slate-500">文字と音声で分かりやすくご案内します</p>
               </div>
             </div>
 
@@ -264,15 +296,25 @@
 
   </main>
 
-  <!-- スマホ専用：画面下部固定アクションバー -->
+  <!-- スマホ専用：画面下部固定アクションバー（音声＋検索） -->
   <div class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3.5 pt-2.5 mobile-bottom-bar shadow-[0_-4px_16px_rgba(15,23,42,0.08)]">
-    <button
-      type="button"
-      id="mobileSubmitBtn"
-      class="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 active:scale-[0.99] text-white font-bold text-base shadow-md shadow-sky-500/25 transition disabled:opacity-50 flex items-center justify-center gap-2"
-    >
-      <span>ルートを検索</span>
-    </button>
+    <div class="flex items-center gap-2">
+      <button
+        type="button"
+        id="mobileVoiceBtn"
+        class="shrink-0 py-3.5 px-3.5 rounded-2xl bg-indigo-600 active:scale-[0.98] text-white font-bold text-sm shadow-md shadow-indigo-500/20 transition flex items-center justify-center gap-1"
+      >
+        <span id="mobileVoiceIcon">🎙️</span>
+        <span>音声</span>
+      </button>
+      <button
+        type="button"
+        id="mobileSubmitBtn"
+        class="flex-1 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 active:scale-[0.99] text-white font-bold text-base shadow-md shadow-sky-500/25 transition disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        <span>ルートを検索</span>
+      </button>
+    </div>
   </div>
 
   <script>
@@ -283,6 +325,9 @@
     let latestRawExplanation = "";
     let typingTimer = null;
     let isSpeaking = false;
+    let autoSpeakNextResult = false;
+    let recognition = null;
+    let isListening = false;
 
     const form = document.getElementById("searchForm");
     const swapBtn = document.getElementById("swapBtn");
@@ -290,8 +335,18 @@
     const gpsStatus = document.getElementById("gpsStatus");
     const originInput = document.getElementById("origin");
     const destInput = document.getElementById("destination");
+    const userNoteInput = document.getElementById("userNote");
     const submitBtn = document.getElementById("submitBtn");
     const mobileSubmitBtn = document.getElementById("mobileSubmitBtn");
+
+    const voiceSearchBtn = document.getElementById("voiceSearchBtn");
+    const voiceBtnIcon = document.getElementById("voiceBtnIcon");
+    const voiceBtnText = document.getElementById("voiceBtnText");
+    const mobileVoiceBtn = document.getElementById("mobileVoiceBtn");
+    const mobileVoiceIcon = document.getElementById("mobileVoiceIcon");
+    const voiceTranscriptBox = document.getElementById("voiceTranscriptBox");
+    const voiceStatusLabel = document.getElementById("voiceStatusLabel");
+    const voiceTranscriptText = document.getElementById("voiceTranscriptText");
 
     const emptyState = document.getElementById("emptyState");
     const loadingState = document.getElementById("loadingState");
@@ -319,17 +374,14 @@
     function stripMarkdownForSpeech(mdText) {
       return mdText
         .replace(/[#*`>-]/g, "")
+        .replace(/¥(\d+)/g, "$1円")
         .replace(/\n+/g, "。")
         .replace(/。+/g, "。")
         .trim();
     }
 
-    speakBtn.addEventListener("click", () => {
+    function speakGuideText() {
       if (!("speechSynthesis" in window)) {
-        return;
-      }
-      if (isSpeaking) {
-        stopSpeech();
         return;
       }
       const plainText = `${aiGreetingEl.textContent}。${stripMarkdownForSpeech(latestRawExplanation)}`;
@@ -349,9 +401,17 @@
       utterance.onend = stopSpeech;
       utterance.onerror = stopSpeech;
       window.speechSynthesis.speak(utterance);
+    }
+
+    speakBtn.addEventListener("click", () => {
+      if (isSpeaking) {
+        stopSpeech();
+      } else {
+        speakGuideText();
+      }
     });
 
-    function animateSpokenMarkdown(markdownText, origin, destination) {
+    function animateSpokenMarkdown(markdownText, origin, destination, shouldAutoSpeak = false) {
       if (typingTimer) {
         clearInterval(typingTimer);
         typingTimer = null;
@@ -362,6 +422,10 @@
 
       speakingIndicator.classList.remove("hidden");
       speakingIndicator.classList.add("flex");
+
+      if (shouldAutoSpeak) {
+        speakGuideText();
+      }
 
       let index = 0;
       const step = Math.max(4, Math.ceil(markdownText.length / 75));
@@ -491,60 +555,239 @@
       return null;
     }
 
-    gpsBtn.addEventListener("click", () => {
-      if (!navigator.geolocation) {
-        gpsStatus.textContent = "このブラウザは位置情報（GPS）に対応していません。";
-        gpsStatus.className = "text-xs text-rose-600 font-medium mt-1.5";
+    function fetchCurrentLocationAsOrigin() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          gpsStatus.textContent = "このブラウザは位置情報（GPS）に対応していません。";
+          gpsStatus.className = "text-xs text-rose-600 font-medium mt-1.5";
+          gpsStatus.classList.remove("hidden");
+          resolve(false);
+          return;
+        }
+
+        gpsBtn.disabled = true;
+        gpsBtn.textContent = "📡 取得中...";
+        gpsStatus.textContent = "現在地と住所を取得しています...";
+        gpsStatus.className = "text-xs text-slate-600 mt-1.5";
         gpsStatus.classList.remove("hidden");
+
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const lat = Number(pos.coords.latitude.toFixed(5));
+            const lng = Number(pos.coords.longitude.toFixed(5));
+            currentOriginCoords = [lat, lng];
+
+            const address = await reverseGeocodeToAddress(lat, lng);
+            if (address) {
+              originInput.value = address;
+              gpsStatus.textContent = `現在地住所を取得しました（誤差 約${Math.round(
+                pos.coords.accuracy
+              )}m）`;
+            } else {
+              originInput.value = `現在地 (${lat}, ${lng})`;
+              gpsStatus.textContent = `GPS取得完了・座標表示（誤差 約${Math.round(
+                pos.coords.accuracy
+              )}m）`;
+            }
+
+            gpsStatus.className = "text-xs text-emerald-700 font-bold mt-1.5";
+            gpsStatus.classList.remove("hidden");
+            gpsBtn.disabled = false;
+            gpsBtn.innerHTML = "<span>📍 現在地を使う</span>";
+            resolve(true);
+          },
+          (err) => {
+            let msg = "現在地を取得できませんでした。";
+            if (err.code === err.PERMISSION_DENIED) {
+              msg = "位置情報の許可がオフになっています。設定から許可してください。";
+            } else if (err.code === err.TIMEOUT) {
+              msg = "位置情報の取得がタイムアウトしました。";
+            }
+            gpsStatus.textContent = msg;
+            gpsStatus.className = "text-xs text-rose-600 font-medium mt-1.5";
+            gpsStatus.classList.remove("hidden");
+            gpsBtn.disabled = false;
+            gpsBtn.innerHTML = "<span>📍 現在地を使う</span>";
+            resolve(false);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        );
+      });
+    }
+
+    gpsBtn.addEventListener("click", () => {
+      fetchCurrentLocationAsOrigin();
+    });
+
+    // 音声認識テキストを解析してフォームへ反映
+    function parseSpokenQuery(spokenText) {
+      const cleaned = spokenText.replace(/[？?！!。、]/g, " ").trim();
+
+      let useCurrentLocation = /(今いるところ|いまいるところ|現在地|ここから|今いる場所)/.test(cleaned);
+      let extractedOrigin = "";
+      let extractedDest = "";
+
+      const fromToMatch = cleaned.match(
+        /(.+?)から\s*(.+?)(?:まで|へ|に|にいく|に行く|に行きたい|への|の最短|の最安|のルート|ルート|経路|行き方|$)/
+      );
+
+      if (fromToMatch) {
+        const rawFrom = fromToMatch[1].trim();
+        const rawTo = fromToMatch[2].trim();
+
+        if (/(今いるところ|いまいるところ|現在地|ここ|今いる場所)/.test(rawFrom)) {
+          useCurrentLocation = true;
+        } else {
+          extractedOrigin = rawFrom;
+        }
+        extractedDest = rawTo;
+      } else {
+        const toOnlyMatch = cleaned.match(
+          /(.+?)(?:まで|へ|に|にいく|に行く|に行きたい|への|の最短|の最安|のルート|ルート|経路|行き方)/
+        );
+        if (toOnlyMatch) {
+          extractedDest = toOnlyMatch[1]
+            .replace(/^(今いるところ|いまいるところ|現在地|ここ)\s*/, "")
+            .trim();
+        }
+      }
+
+      // 優先モード判定
+      if (/(安い|安く|最安|節約|運賃重視)/.test(cleaned)) {
+        const cheapestRadio = document.querySelector('input[name="preference"][value="cheapest"]');
+        if (cheapestRadio) cheapestRadio.checked = true;
+      } else if (/(最短|早い|早く|速い|速く|急ぎ|時間重視)/.test(cleaned)) {
+        const shortestRadio = document.querySelector('input[name="preference"][value="shortest"]');
+        if (shortestRadio) shortestRadio.checked = true;
+      }
+
+      // 飛行機利用有無判定
+      if (/(飛行機なし|飛行機を使わない|飛行機以外|新幹線|電車だけ|バスだけ)/.test(cleaned)) {
+        const noFlightRadio = document.querySelector('input[name="flightOption"][value="no"]');
+        if (noFlightRadio) noFlightRadio.checked = true;
+      } else if (/(飛行機|空路|フライト)/.test(cleaned)) {
+        const yesFlightRadio = document.querySelector('input[name="flightOption"][value="yes"]');
+        if (yesFlightRadio) yesFlightRadio.checked = true;
+      }
+
+      return {
+        useCurrentLocation,
+        origin: extractedOrigin,
+        destination: extractedDest,
+      };
+    }
+
+    async function handleVoiceCommandResult(transcript) {
+      voiceStatusLabel.textContent = "解析して検索します...";
+      voiceTranscriptText.textContent = `「${transcript}」`;
+
+      const parsed = parseSpokenQuery(transcript);
+
+      if (parsed.destination) {
+        destInput.value = parsed.destination;
+      }
+
+      if (parsed.useCurrentLocation) {
+        await fetchCurrentLocationAsOrigin();
+      } else if (parsed.origin) {
+        originInput.value = parsed.origin;
+        currentOriginCoords = null;
+        gpsStatus.classList.add("hidden");
+      }
+
+      userNoteInput.value = transcript;
+      autoSpeakNextResult = true;
+      form.requestSubmit();
+    }
+
+    function setListeningUI(listening) {
+      isListening = listening;
+      if (listening) {
+        voiceSearchBtn.classList.add("mic-listening", "from-rose-600", "to-pink-600");
+        voiceSearchBtn.classList.remove("from-indigo-600", "to-sky-600");
+        voiceBtnIcon.textContent = "⏹️";
+        voiceBtnText.textContent = "聞き取り中";
+        mobileVoiceBtn.classList.add("mic-listening", "bg-rose-600");
+        mobileVoiceBtn.classList.remove("bg-indigo-600");
+        mobileVoiceIcon.textContent = "⏹️";
+
+        voiceTranscriptBox.classList.remove("hidden");
+        voiceStatusLabel.textContent = "🎙️ 話しかけてください...";
+        voiceTranscriptText.textContent = "";
+      } else {
+        voiceSearchBtn.classList.remove("mic-listening", "from-rose-600", "to-pink-600");
+        voiceSearchBtn.classList.add("from-indigo-600", "to-sky-600");
+        voiceBtnIcon.textContent = "🎙️";
+        voiceBtnText.textContent = "話しかける";
+        mobileVoiceBtn.classList.remove("mic-listening", "bg-rose-600");
+        mobileVoiceBtn.classList.add("bg-indigo-600");
+        mobileVoiceIcon.textContent = "🎙️";
+      }
+    }
+
+    function startVoiceRecognition() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        voiceTranscriptBox.classList.remove("hidden");
+        voiceStatusLabel.textContent = "音声認識に未対応のブラウザです";
+        voiceTranscriptText.textContent = "Chrome や Safari などの対応ブラウザをご利用ください。";
         return;
       }
 
-      gpsBtn.disabled = true;
-      gpsBtn.textContent = "📡 取得中...";
-      gpsStatus.textContent = "現在地と住所を取得しています...";
-      gpsStatus.className = "text-xs text-slate-600 mt-1.5";
-      gpsStatus.classList.remove("hidden");
+      if (isListening && recognition) {
+        recognition.stop();
+        return;
+      }
 
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const lat = Number(pos.coords.latitude.toFixed(5));
-          const lng = Number(pos.coords.longitude.toFixed(5));
-          currentOriginCoords = [lat, lng];
+      stopSpeech();
 
-          const address = await reverseGeocodeToAddress(lat, lng);
-          if (address) {
-            originInput.value = address;
-            gpsStatus.textContent = `現在地住所を取得しました（誤差 約${Math.round(
-              pos.coords.accuracy
-            )}m）`;
+      recognition = new SpeechRecognition();
+      recognition.lang = "ja-JP";
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      let finalTranscript = "";
+
+      recognition.onstart = () => {
+        setListeningUI(true);
+      };
+
+      recognition.onresult = (event) => {
+        let interim = "";
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const text = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += text;
           } else {
-            originInput.value = `現在地 (${lat}, ${lng})`;
-            gpsStatus.textContent = `GPS取得完了・座標表示（誤差 約${Math.round(
-              pos.coords.accuracy
-            )}m）`;
+            interim += text;
           }
+        }
+        voiceTranscriptText.textContent = finalTranscript || interim;
+      };
 
-          gpsStatus.className = "text-xs text-emerald-700 font-bold mt-1.5";
-          gpsStatus.classList.remove("hidden");
-          gpsBtn.disabled = false;
-          gpsBtn.innerHTML = "<span>📍 現在地を使う</span>";
-        },
-        (err) => {
-          let msg = "現在地を取得できませんでした。";
-          if (err.code === err.PERMISSION_DENIED) {
-            msg = "位置情報の許可がオフになっています。設定から許可してください。";
-          } else if (err.code === err.TIMEOUT) {
-            msg = "位置情報の取得がタイムアウトしました。";
-          }
-          gpsStatus.textContent = msg;
-          gpsStatus.className = "text-xs text-rose-600 font-medium mt-1.5";
-          gpsStatus.classList.remove("hidden");
-          gpsBtn.disabled = false;
-          gpsBtn.innerHTML = "<span>📍 現在地を使う</span>";
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-      );
-    });
+      recognition.onerror = (event) => {
+        setListeningUI(false);
+        voiceTranscriptBox.classList.remove("hidden");
+        voiceStatusLabel.textContent = "音声を聞き取れませんでした";
+        voiceTranscriptText.textContent =
+          event.error === "not-allowed"
+            ? "マイクの使用許可をオンにしてもう一度お試しください。"
+            : "もう一度「話しかける」を押して話してください。";
+      };
+
+      recognition.onend = () => {
+        setListeningUI(false);
+        const spoken = (finalTranscript || voiceTranscriptText.textContent).trim();
+        if (spoken && !spoken.startsWith("マイクの使用") && !spoken.startsWith("もう一度")) {
+          handleVoiceCommandResult(spoken);
+        }
+      };
+
+      recognition.start();
+    }
+
+    voiceSearchBtn.addEventListener("click", startVoiceRecognition);
+    mobileVoiceBtn.addEventListener("click", startVoiceRecognition);
 
     swapBtn.addEventListener("click", () => {
       const temp = originInput.value;
@@ -672,11 +915,14 @@
       e.preventDefault();
       stopSpeech();
 
+      const shouldAutoSpeak = autoSpeakNextResult;
+      autoSpeakNextResult = false;
+
       const origin = originInput.value.trim();
       const destination = destInput.value.trim();
       const includeFlight = document.querySelector('input[name="flightOption"]:checked').value === "yes";
       const preference = document.querySelector('input[name="preference"]:checked').value;
-      const userNote = document.getElementById("userNote").value.trim();
+      const userNote = userNoteInput.value.trim();
 
       emptyState.classList.add("hidden");
       errorState.classList.add("hidden");
@@ -712,7 +958,7 @@
 
         loadingState.classList.add("hidden");
         resultContainer.classList.remove("hidden");
-        animateSpokenMarkdown(data.aiExplanation, origin, destination);
+        animateSpokenMarkdown(data.aiExplanation, origin, destination, shouldAutoSpeak);
 
         if (window.innerWidth < 1024) {
           document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth", block: "start" });
