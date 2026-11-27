@@ -62,7 +62,7 @@ body {
     transform: translateY(0px) scale(1);
   }
   30% {
-    transform: translateY(-7px) scale(1.04);
+    transform: translateY(-6px) scale(1.03);
   }
   60% {
     transform: translateY(-1px) scale(0.99);
@@ -81,7 +81,7 @@ body {
   animation: charTalk 0.55s ease-in-out infinite;
 }
 
-/* 画面左端の外から定位置までゆっくり歩く登場演出 */
+/* 画面左端の外から定位置までゆっくり移動する登場演出（8列×4行） */
 #walkStage {
   position: fixed;
   left: 0;
@@ -89,7 +89,7 @@ body {
   z-index: 35;
   pointer-events: none;
   transform: translate3d(var(--walk-start-x, -160px), var(--walk-y, 160px), 0);
-  transition: transform 3.2s cubic-bezier(0.25, 0.9, 0.3, 1);
+  transition: transform 3.4s cubic-bezier(0.25, 0.9, 0.3, 1);
 }
 
 #walkStage.is-walking {
@@ -97,10 +97,48 @@ body {
 }
 
 .walk-sprite {
-  width: 128px;
-  height: 128px;
+  width: 120px;
+  height: 120px;
   background-image: url("./DEMO-move.png");
-  background-size: 400% 300%;
+  background-size: 800% 400%;
+  background-position: 0% 0%;
+  background-repeat: no-repeat;
+}
+
+/* 待機・表情スプライト（5列×4行） */
+.stand-sprite {
+  width: 124px;
+  height: 124px;
+  background-image: url("./DEMO-stand.png");
+  background-size: 500% 400%;
+  background-position: 0% 0%;
+  background-repeat: no-repeat;
+}
+
+.stand-loading {
+  width: 84px;
+  height: 84px;
+  background-image: url("./DEMO-stand.png");
+  background-size: 500% 400%;
+  background-position: 0% 33.3333%;
+  background-repeat: no-repeat;
+  animation: charFloat 0.9s ease-in-out infinite;
+}
+
+.stand-sm {
+  width: 40px;
+  height: 40px;
+  background-image: url("./DEMO-stand.png");
+  background-size: 500% 400%;
+  background-position: 0% 0%;
+  background-repeat: no-repeat;
+}
+
+.stand-mini {
+  width: 32px;
+  height: 32px;
+  background-image: url("./DEMO-stand.png");
+  background-size: 500% 400%;
   background-position: 0% 0%;
   background-repeat: no-repeat;
 }

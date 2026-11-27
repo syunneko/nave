@@ -14,6 +14,7 @@ let currentMode = "voice"; // "voice" | "input"
 let walkFrameTimer = null;
 let walkFinishTimer = null;
 let walkRafId = null;
+let talkExprTimer = null;
 
 let searchSettings = {
   includeFlight: true,
@@ -27,6 +28,14 @@ const MODE_BADGE = {
   walk: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>',
 };
 
+// DEMO-stand.png（5列 x 4行）のコマ位置をセット
+function setStandFrame(el, col, row) {
+  if (!el) return;
+  const xPct = (col / 4) * 100;
+  const yPct = (row / 3) * 100;
+  el.style.backgroundPosition = `${xPct}% ${yPct}%`;
+}
+
 function stopWalkEntrance() {
   clearInterval(walkFrameTimer);
   clearTimeout(walkFinishTimer);
@@ -35,13 +44,19 @@ function stopWalkEntrance() {
   walkFinishTimer = null;
 }
 
-// 画面左端の外から定位置までゆっくり歩いて登場し、立ち絵へ切り替え
+function stopTalkExprLoop() {
+  clearInterval(talkExprTimer);
+  talkExprTimer = null;
+}
+
+// 画面左端の外から定位置まで移動スプライト（8x4=32コマ）で登場し、待機スプライトへ切り替え
 function playWalkEntrance() {
   stopWalkEntrance();
 
   const walkStage = $("walkStage");
   const walkSprite = $("walkSprite");
   const avatarWrap = $("avatarWrap");
+  const standSprite = $("standSprite");
   const badge = $("charStateBadge");
 
   if (currentMode !== "voice") {
@@ -49,17 +64,17 @@ function playWalkEntrance() {
     return;
   }
 
-  // 画像が読み込めるか事前チェック
   const probe = new Image();
   probe.onerror = () => {
     walkStage.classList.add("hidden");
     avatarWrap.classList.remove("hidden");
+    setStandFrame(standSprite, 0, 0);
     setCharacterState("idle", "DEMO-move.png が見つからなかったよ！public フォルダを確認してね。");
   };
   probe.src = "./DEMO-move.png";
 
   const rect = avatarWrap.getBoundingClientRect();
-  const spriteSize = 128;
+  const spriteSize = 120;
   const fallbackX = Math.max(24, Math.round(window.innerWidth * 0.2 - spriteSize / 2));
   const fallbackY = Math.max(120, Math.round(window.innerHeight * 0.35 - spriteSize / 2));
 
@@ -74,47 +89,48 @@ function playWalkEntrance() {
   walkStage.style.setProperty("--walk-end-x", `${endX}px`);
   walkStage.style.setProperty("--walk-y", `${posY}px`);
 
-  // 4列 x 3行（12コマ）を順番に再生
-  const cols = 4;
-  const rows = 3;
+  // 8列 x 4行（32コマ）をゆっくり順番再生
+  const cols = 8;
+  const rows = 4;
+  const totalFrames = cols * rows;
   let frameIndex = 0;
 
   const applyFrame = (idx) => {
-    const col = idx % cols;
-    const row = Math.floor(idx / cols) % rows;
-    const xPct = cols > 1 ? (col / (cols - 1)) * 100 : 0;
-    const yPct = rows > 1 ? (row / (rows - 1)) * 100 : 0;
+    const f = idx % totalFrames;
+    const col = f % cols;
+    const row = Math.floor(f / cols);
+    const xPct = (col / (cols - 1)) * 100;
+    const yPct = (row / (rows - 1)) * 100;
     walkSprite.style.backgroundPosition = `${xPct}% ${yPct}%`;
   };
 
   applyFrame(0);
   badge.textContent = "👣 登場中";
   badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
-  $("charBubble").textContent = "てくてく…左から歩いて向かっているよ！";
+  $("charBubble").textContent = "ぴょんぴょん…左から歩いて向かっているよ！";
 
-  // 3.2秒かけて12コマをゆっくり再生（約266ms/コマ）
   walkFrameTimer = setInterval(() => {
     frameIndex += 1;
     applyFrame(frameIndex);
-  }, 266);
+  }, 105);
 
   walkRafId = requestAnimationFrame(() => {
     walkRafId = requestAnimationFrame(() => {
-      walkStage.style.transition = "transform 3.2s cubic-bezier(0.25, 0.9, 0.3, 1)";
+      walkStage.style.transition = "transform 3.4s cubic-bezier(0.25, 0.9, 0.3, 1)";
       walkStage.classList.add("is-walking");
     });
   });
 
-  // 定位置到着後に立ち絵（DEMO.png）へ切り替え
   walkFinishTimer = setTimeout(() => {
     stopWalkEntrance();
     walkStage.classList.add("hidden");
     walkStage.classList.remove("is-walking");
     avatarWrap.classList.remove("hidden");
+    setStandFrame(standSprite, 0, 0);
     if (!isListening && !isSpeaking) {
       setCharacterState("idle", "到着したよ！行きたい場所を話しかけてね！");
     }
-  }, 3250);
+  }, 3450);
 }
 
 $("avatarWrap").onclick = () => {
@@ -154,31 +170,51 @@ function switchScreen(mode) {
 $("tabVoiceBtn").onclick = () => switchScreen("voice");
 $("tabInputBtn").onclick = () => switchScreen("input");
 
-// キャラクターの見た目・状態バッジ・吹き出しを更新
+// キャラクターの表情・アニメーション・状態バッジ・吹き出しを更新
 function setCharacterState(state, bubbleText) {
   const avatar = $("avatarWrap");
+  const standSprite = $("standSprite");
   const replyAvatar = $("replyAvatarWrap");
+  const replySprite = $("replyStandSprite");
   const badge = $("charStateBadge");
 
+  stopTalkExprLoop();
   avatar.classList.remove("char-idle", "char-listening", "char-speaking");
   if (replyAvatar) replyAvatar.classList.remove("char-idle", "char-listening", "char-speaking");
 
   if (state === "listening") {
     avatar.classList.add("char-listening");
+    setStandFrame(standSprite, 1, 3); // キラキラ笑顔
     badge.textContent = "👂 聞き取り中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
   } else if (state === "speaking") {
     avatar.classList.add("char-speaking");
     if (replyAvatar) replyAvatar.classList.add("char-speaking");
+    let toggle = false;
+    setStandFrame(standSprite, 1, 0);
+    setStandFrame(replySprite, 1, 0);
+    talkExprTimer = setInterval(() => {
+      toggle = !toggle;
+      setStandFrame(standSprite, toggle ? 2 : 1, 0);
+      setStandFrame(replySprite, toggle ? 2 : 1, 0);
+    }, 320);
     badge.textContent = "💬 お話し中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700";
   } else if (state === "thinking") {
     avatar.classList.add("char-idle");
+    setStandFrame(standSprite, 0, 1); // ぱっちり
     badge.textContent = "🔍 検索中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
+  } else if (state === "error") {
+    avatar.classList.add("char-idle");
+    setStandFrame(standSprite, 4, 1); // 困り顔
+    badge.textContent = "⚠️ エラー";
+    badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-700";
   } else {
     avatar.classList.add("char-idle");
     if (replyAvatar) replyAvatar.classList.add("char-idle");
+    setStandFrame(standSprite, 0, 0);
+    setStandFrame(replySprite, 0, 0);
     badge.textContent = "待機中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-sky-100 text-sky-700";
   }
@@ -394,7 +430,7 @@ function startVoice() {
     $("voiceBox").classList.remove("hidden");
     $("voiceStatus").textContent = "未対応ブラウザです";
     $("voiceText").textContent = "Chrome や Safari をご利用ください。";
-    setCharacterState("idle", "ごめんね、このブラウザだと音声認識が使えないみたい。");
+    setCharacterState("error", "ごめんね、このブラウザだと音声認識が使えないみたい。");
     return;
   }
   if (isListening && recognition) {
@@ -421,7 +457,7 @@ function startVoice() {
   recognition.onerror = () => {
     setListening(false);
     $("voiceStatus").textContent = "聞き取れませんでした。もう一度話しかけてください。";
-    setCharacterState("idle", "うまく聞き取れなかったよ。もう一回話しかけてね！");
+    setCharacterState("error", "うまく聞き取れなかったよ。もう一回話しかけてね！");
   };
   recognition.onend = async () => {
     setListening(false);
@@ -457,7 +493,7 @@ function renderAgentReply(origin, destination, preference, shouldAutoSpeak) {
     $("aiReplyLead").textContent = msg;
     $("aiReplyHighlights").innerHTML = "";
     speechScript = msg;
-    setCharacterState("idle", msg);
+    setCharacterState("error", msg);
     if (shouldAutoSpeak) sayShortPhrase(speechScript, handsFreeEnabled);
     return;
   }
@@ -582,7 +618,7 @@ $("searchForm").onsubmit = async (e) => {
     $("loadingState").classList.add("hidden");
     $("errorState").textContent = "エラー: " + err.message;
     $("errorState").classList.remove("hidden");
-    setCharacterState("idle", "ごめんね、検索でエラーが起きちゃった。もう一回試してみて！");
+    setCharacterState("error", "ごめんね、検索でエラーが起きちゃった。もう一回試してみて！");
     if (handsFreeEnabled && currentMode === "voice") {
       sayShortPhrase("ごめんね、エラーが起きちゃった。もう一回話しかけてね！", true);
     }

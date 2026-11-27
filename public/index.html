@@ -12,7 +12,7 @@
   <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-20">
     <div class="max-w-5xl mx-auto px-4 py-2.5 flex items-center justify-between gap-2">
       <div class="flex items-center gap-2 min-w-0">
-        <img src="./DEMO.png" alt="ナビロボット" class="w-8 h-8 object-contain shrink-0" />
+        <div class="stand-mini shrink-0" aria-hidden="true"></div>
         <h1 class="text-base font-extrabold text-slate-900 truncate">Transit AI</h1>
       </div>
 
@@ -47,20 +47,20 @@
 
         <!-- キャラクター表示ステージ -->
         <div class="relative w-full h-36 sm:h-40 flex items-center justify-center overflow-hidden">
-          <!-- 初回登場：スプライトシート歩行 -->
-          <div id="walkStage" class="walk-slide-in flex items-center justify-center">
+          <!-- 初回登場：移動スプライトシート（DEMO-move.png） -->
+          <div id="walkStage" class="hidden">
             <div id="walkSprite" class="walk-sprite"></div>
           </div>
 
-          <!-- 登場後：立ち絵（DEMO.png） -->
-          <div id="avatarWrap" class="hidden w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center cursor-pointer char-idle" title="タップで再登場">
-            <img id="avatarImg" src="./DEMO.png" alt="ナビロボ" class="w-full h-full object-contain" />
+          <!-- 登場後：待機・表情スプライトシート（DEMO-stand.png） -->
+          <div id="avatarWrap" class="flex items-center justify-center cursor-pointer char-idle" title="タップで再登場">
+            <div id="standSprite" class="stand-sprite"></div>
           </div>
         </div>
 
         <div class="bg-white border border-sky-100 rounded-2xl p-3.5 shadow-2xs">
           <p id="charBubble" class="text-sm sm:text-base font-bold text-slate-800 leading-relaxed">
-            てくてく…やってきたよ！行きたい場所を話しかけてね！
+            ぴょんぴょん…やってきたよ！行きたい場所を話しかけてね！
           </p>
         </div>
 
@@ -134,7 +134,7 @@
       </div>
 
       <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-3">
-        <img src="./DEMO.png" alt="検索中" class="w-20 h-20 mx-auto object-contain animate-bounce" />
+        <div class="stand-loading mx-auto"></div>
         <p class="text-sm font-bold text-slate-700">ナビロボがぴったりなルートを探しているよ...</p>
       </div>
 
@@ -144,8 +144,8 @@
         <div class="bg-white border border-sky-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
           <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
             <div class="flex items-center gap-2.5 min-w-0">
-              <div id="replyAvatarWrap" class="w-10 h-10 flex items-center justify-center shrink-0 char-idle">
-                <img src="./DEMO.png" alt="ナビロボ" class="w-full h-full object-contain" />
+              <div id="replyAvatarWrap" class="flex items-center justify-center shrink-0 char-idle">
+                <div id="replyStandSprite" class="stand-sm"></div>
               </div>
               <div class="truncate">
                 <div class="flex items-center gap-2">
@@ -167,7 +167,7 @@
           </div>
 
           <div class="flex items-start gap-2.5">
-            <img src="./DEMO.png" alt="ナビロボ" class="w-9 h-9 object-contain shrink-0 mt-0.5" />
+            <div class="stand-sm shrink-0 mt-0.5"></div>
             <div class="flex-1 bg-sky-50/70 border border-sky-100 rounded-2xl rounded-tl-sm p-3.5 space-y-2.5">
               <p id="aiReplyLead" class="text-sm sm:text-base font-bold text-slate-900 leading-relaxed"></p>
               <div id="aiReplyHighlights" class="space-y-2"></div>
