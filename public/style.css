@@ -82,39 +82,35 @@ body {
 }
 
 /* 待機・表情スプライト（5列×4行） */
-.stand-sprite {
-  width: 128px;
-  height: 128px;
-  background-image: url("./DEMO-stand.png");
+.stand-sprite,
+.stand-loading,
+.stand-sm,
+.stand-mini {
+  background-image: var(--stand-url, url("./DEMO-stand.jpg"));
   background-size: 500% 400%;
   background-position: 0% 0%;
   background-repeat: no-repeat;
+  border-radius: 9999px;
+}
+
+.stand-sprite {
+  width: 124px;
+  height: 124px;
 }
 
 .stand-loading {
   width: 84px;
   height: 84px;
-  background-image: url("./DEMO-stand.png");
-  background-size: 500% 400%;
   background-position: 0% 33.3333%;
-  background-repeat: no-repeat;
   animation: charFloat 0.9s ease-in-out infinite;
 }
 
 .stand-sm {
   width: 40px;
   height: 40px;
-  background-image: url("./DEMO-stand.png");
-  background-size: 500% 400%;
-  background-position: 0% 0%;
-  background-repeat: no-repeat;
 }
 
 .stand-mini {
   width: 32px;
   height: 32px;
-  background-image: url("./DEMO-stand.png");
-  background-size: 500% 400%;
-  background-position: 0% 0%;
-  background-repeat: no-repeat;
 }

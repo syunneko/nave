@@ -26,7 +26,23 @@ const MODE_BADGE = {
   walk: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>',
 };
 
-// DEMO-stand.png（5列 x 4行）のコマ位置をセット
+// DEMO-stand.jpg / DEMO-stand.png の存在を確認して CSS 変数を設定
+function resolveStandImage() {
+  const jpgProbe = new Image();
+  jpgProbe.onload = () => {
+    document.documentElement.style.setProperty("--stand-url", 'url("./DEMO-stand.jpg")');
+  };
+  jpgProbe.onerror = () => {
+    const pngProbe = new Image();
+    pngProbe.onload = () => {
+      document.documentElement.style.setProperty("--stand-url", 'url("./DEMO-stand.png")');
+    };
+    pngProbe.src = "./DEMO-stand.png";
+  };
+  jpgProbe.src = "./DEMO-stand.jpg";
+}
+
+// 5列 x 4行のスプライトシートの指定コマ（col: 0..4, row: 0..3）を適用
 function setStandFrame(el, col, row) {
   if (!el) return;
   const xPct = (col / 4) * 100;
@@ -41,20 +57,30 @@ function stopExprLoops() {
   talkExprTimer = null;
 }
 
-// 待機中の表情・まばたきアニメーションを開始
+// 待機中の表情アニメーション（にっこり → ぱっちり笑顔 → ウインク → ワクワク）
 function startIdleAnimation() {
   stopExprLoops();
   const standSprite = $("standSprite");
   const replySprite = $("replyStandSprite");
-  setStandFrame(standSprite, 0, 0);
-  setStandFrame(replySprite, 0, 0);
+  const frames = [
+    [0, 0],
+    [1, 0],
+    [2, 0],
+    [1, 0],
+  ];
+  let idx = 0;
 
-  let blink = false;
+  const applyCurrent = () => {
+    const [col, row] = frames[idx % frames.length];
+    setStandFrame(standSprite, col, row);
+    setStandFrame(replySprite, col, row);
+  };
+
+  applyCurrent();
   idleExprTimer = setInterval(() => {
-    blink = !blink;
-    setStandFrame(standSprite, blink ? 1 : 0, 0);
-    setStandFrame(replySprite, blink ? 1 : 0, 0);
-  }, 1100);
+    idx += 1;
+    applyCurrent();
+  }, 850);
 }
 
 // 音声モード画面 / 文字入力モード画面 の切り替え
@@ -96,30 +122,39 @@ function setCharacterState(state, bubbleText) {
 
   if (state === "listening") {
     avatar.classList.add("char-listening");
-    setStandFrame(standSprite, 1, 3);
+    setStandFrame(standSprite, 1, 3); // キラキラ笑顔
     badge.textContent = "👂 聞き取り中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
   } else if (state === "speaking") {
     avatar.classList.add("char-speaking");
     if (replyAvatar) replyAvatar.classList.add("char-speaking");
-    let toggle = false;
-    setStandFrame(standSprite, 1, 0);
-    setStandFrame(replySprite, 1, 0);
+    const talkFrames = [
+      [1, 0],
+      [4, 0],
+      [2, 0],
+      [0, 1],
+    ];
+    let idx = 0;
+    const applyTalk = () => {
+      const [col, row] = talkFrames[idx % talkFrames.length];
+      setStandFrame(standSprite, col, row);
+      setStandFrame(replySprite, col, row);
+    };
+    applyTalk();
     talkExprTimer = setInterval(() => {
-      toggle = !toggle;
-      setStandFrame(standSprite, toggle ? 2 : 1, 0);
-      setStandFrame(replySprite, toggle ? 2 : 1, 0);
-    }, 320);
+      idx += 1;
+      applyTalk();
+    }, 280);
     badge.textContent = "💬 お話し中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700";
   } else if (state === "thinking") {
     avatar.classList.add("char-idle");
-    setStandFrame(standSprite, 0, 1);
+    setStandFrame(standSprite, 0, 1); // ぱっちり
     badge.textContent = "🔍 検索中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
   } else if (state === "error") {
     avatar.classList.add("char-idle");
-    setStandFrame(standSprite, 4, 1);
+    setStandFrame(standSprite, 4, 1); // 困り顔
     badge.textContent = "⚠️ エラー";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-700";
   } else {
@@ -176,6 +211,7 @@ $("saveSettingsBtn").onclick = () => {
   setCharacterState("idle", "設定を更新したよ！いつでも話しかけてね！");
 };
 
+resolveStandImage();
 updateSettingsSummary();
 setCharacterState("idle", "こんにちは！行きたい場所を話しかけてね！");
 
