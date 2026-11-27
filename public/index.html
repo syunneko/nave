@@ -12,13 +12,13 @@
   <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-20">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
       <div class="flex items-center gap-2.5 min-w-0">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-lg shadow-sm shrink-0">🧭</div>
+        <img src="./DEMO.jpg" alt="ナビロボット" class="w-9 h-9 rounded-xl object-cover border border-sky-200 bg-white shadow-sm shrink-0" />
         <div class="truncate">
           <div class="flex items-center gap-1.5">
             <h1 class="text-base sm:text-lg font-extrabold text-slate-900">Transit AI</h1>
             <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">音声対話AI</span>
           </div>
-          <p class="text-[11px] text-slate-500 truncate">話しかけて検索＆AI エージェント案内</p>
+          <p class="text-[11px] text-slate-500 truncate">話しかけて検索＆ナビロボ案内</p>
         </div>
       </div>
 
@@ -29,33 +29,43 @@
   </header>
 
   <main class="max-w-6xl mx-auto px-3 sm:px-5 py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-7 items-start">
-    <!-- 左カラム：検索フォーム -->
-    <section class="lg:col-span-4 lg:sticky lg:top-24">
-      <div class="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
-        <div class="bg-gradient-to-r from-indigo-50 to-sky-50 border border-sky-200 rounded-2xl p-3.5 space-y-2.5">
-          <div class="flex items-center justify-between gap-2">
-            <div class="min-w-0">
-              <p class="text-xs font-extrabold text-slate-900">🎙️ AIエージェントに話しかける</p>
-              <p id="voiceHint" class="text-[11px] text-slate-600 truncate">「今いるところから博多駅まで一番早いルートは？」</p>
+    <!-- 左カラム：キャラクター＋検索フォーム -->
+    <section class="lg:col-span-4 lg:sticky lg:top-24 space-y-4">
+      <!-- キャラクター対話カード -->
+      <div class="bg-gradient-to-b from-sky-50 via-white to-indigo-50/60 border border-sky-200 rounded-2xl sm:rounded-3xl p-4 shadow-sm">
+        <div class="flex items-center gap-3.5">
+          <div id="avatarWrap" class="relative w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white border-2 border-sky-200 shadow-sm flex items-center justify-center shrink-0 overflow-hidden char-idle">
+            <img src="./DEMO.jpg" alt="案内ロボット" class="w-full h-full object-contain p-1" />
+          </div>
+          <div class="min-w-0 flex-1 space-y-1.5">
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <span class="text-xs font-extrabold text-slate-900">ナビロボ</span>
+              <span id="charStateBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">待機中</span>
             </div>
-            <button type="button" id="voiceSearchBtn" class="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 text-white text-xs font-bold shadow-sm transition">
-              🎙️ 話す
-            </button>
-          </div>
-
-          <div class="flex items-center justify-between pt-1 border-t border-sky-200/70 text-[11px]">
-            <label class="inline-flex items-center gap-1.5 font-bold text-slate-700 cursor-pointer">
-              <input type="checkbox" id="handsFreeToggle" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
-              <span>🔁 連続会話モード（読み上げ後に自動で聞く）</span>
-            </label>
-          </div>
-
-          <div id="voiceBox" class="hidden bg-white border border-sky-200 rounded-xl px-3 py-2 text-xs">
-            <span id="voiceStatus" class="font-bold text-sky-700 block"></span>
-            <p id="voiceText" class="font-medium text-slate-900"></p>
+            <p id="charBubble" class="text-xs sm:text-sm font-bold text-slate-800 bg-white border border-sky-100 rounded-2xl rounded-tl-sm px-3 py-2 leading-snug shadow-2xs">
+              こんにちは！行きたい場所を話しかけてね！
+            </p>
           </div>
         </div>
 
+        <div class="mt-3 pt-3 border-t border-sky-200/70 flex items-center justify-between gap-2">
+          <label class="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700 cursor-pointer">
+            <input type="checkbox" id="handsFreeToggle" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
+            <span>🔁 連続会話モード</span>
+          </label>
+          <button type="button" id="voiceSearchBtn" class="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 text-white text-xs font-bold shadow-sm transition">
+            🎙️ 話しかける
+          </button>
+        </div>
+
+        <div id="voiceBox" class="hidden mt-2.5 bg-white border border-sky-200 rounded-xl px-3 py-2 text-xs">
+          <span id="voiceStatus" class="font-bold text-sky-700 block"></span>
+          <p id="voiceText" class="font-medium text-slate-900"></p>
+        </div>
+      </div>
+
+      <!-- 検索フォーム -->
+      <div class="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-5 shadow-sm">
         <form id="searchForm" class="space-y-3.5">
           <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2.5">
             <div>
@@ -95,14 +105,15 @@
 
     <!-- 右カラム：AIエージェント案内＆候補 -->
     <section id="resultsSection" class="lg:col-span-8 space-y-4 sm:space-y-6">
-      <div id="emptyState" class="bg-white border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-8 text-center space-y-1.5">
-        <p class="text-slate-700 font-bold text-sm">「🎙️ 話す」を押して話しかけるか、フォームから検索してください</p>
+      <div id="emptyState" class="bg-white border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-8 text-center space-y-2">
+        <img src="./DEMO.jpg" alt="ナビロボ" class="w-16 h-16 mx-auto rounded-2xl object-contain border border-sky-100 p-1 char-idle" />
+        <p class="text-slate-700 font-bold text-sm">「🎙️ 話しかける」を押して、ナビロボに行き先を伝えてね！</p>
         <p class="text-slate-500 text-xs">例：「今いるところから福岡空港まで一番早いルートは？」「天神まで安く行きたい」</p>
       </div>
 
       <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-8 text-center space-y-3">
-        <div class="inline-block w-8 h-8 border-4 border-sky-100 border-t-sky-500 rounded-full animate-spin"></div>
-        <p class="text-sm font-bold text-slate-700">AIエージェントがルートを確認しています...</p>
+        <img src="./DEMO.jpg" alt="検索中" class="w-16 h-16 mx-auto rounded-2xl object-contain p-1 animate-bounce" />
+        <p class="text-sm font-bold text-slate-700">ナビロボがぴったりなルートを探しているよ...</p>
       </div>
 
       <div id="errorState" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 text-rose-700 text-sm font-bold"></div>
@@ -111,10 +122,12 @@
         <div class="bg-white border border-sky-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
           <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
             <div class="flex items-center gap-2.5 min-w-0">
-              <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-lg shrink-0">🤖</div>
+              <div id="replyAvatarWrap" class="w-11 h-11 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center shrink-0 overflow-hidden char-idle">
+                <img src="./DEMO.jpg" alt="ナビロボ" class="w-full h-full object-contain p-0.5" />
+              </div>
               <div class="truncate">
                 <div class="flex items-center gap-2">
-                  <span class="text-sm font-extrabold text-slate-900">AI 乗降エージェント</span>
+                  <span class="text-sm font-extrabold text-slate-900">ナビロボ 乗降ガイド</span>
                   <span id="speakingIndicator" class="hidden items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
                     <span class="w-1.5 h-1.5 rounded-full bg-sky-600 speaking-dot"></span>
                     <span class="w-1.5 h-1.5 rounded-full bg-sky-600 speaking-dot"></span>
@@ -122,7 +135,7 @@
                     <span>お話し中</span>
                   </span>
                 </div>
-                <p class="text-xs text-slate-500 truncate">話しかけた内容に合わせて分かりやすく案内します</p>
+                <p class="text-xs text-slate-500 truncate">乗り降りする駅やバス停を分かりやすく案内するよ</p>
               </div>
             </div>
             <button type="button" id="speakBtn" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200">🔊 音声で聞く</button>
@@ -133,8 +146,8 @@
           </div>
 
           <div class="flex items-start gap-2.5">
-            <div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">AI</div>
-            <div class="flex-1 bg-sky-50/60 border border-sky-100 rounded-2xl rounded-tl-sm p-3.5 sm:p-4 space-y-2.5">
+            <img src="./DEMO.jpg" alt="ナビロボ" class="w-9 h-9 rounded-full bg-sky-50 border border-sky-200 object-contain p-0.5 shrink-0 mt-0.5" />
+            <div class="flex-1 bg-sky-50/70 border border-sky-100 rounded-2xl rounded-tl-sm p-3.5 sm:p-4 space-y-2.5">
               <p id="aiReplyLead" class="text-sm sm:text-base font-bold text-slate-900 leading-relaxed"></p>
               <div id="aiReplyHighlights" class="space-y-2"></div>
             </div>
@@ -189,7 +202,7 @@
         <label class="flex items-center justify-between gap-2 cursor-pointer">
           <div>
             <p class="text-xs font-bold text-slate-800">🔁 連続会話モード</p>
-            <p class="text-[11px] text-slate-500">AIの読み上げが終わったら自動で聞き取りを再開します</p>
+            <p class="text-[11px] text-slate-500">ナビロボの読み上げが終わったら自動で聞き取りを再開します</p>
           </div>
           <input type="checkbox" id="modalHandsFree" class="w-4 h-4 rounded border-slate-300 text-indigo-600" />
         </label>
