@@ -83,6 +83,7 @@ function prettifySpeechText(rawText) {
 // スプライトシート画像のパス解決（4列×4行）
 function resolveCharSpriteImage() {
   const candidatesSrc = [
+    "./DEMO-stand_2.jpeg",
     "./DEMO-stand.jpeg",
     "./DEMO-stand.jpg",
     "./DEMO-stand.png",
@@ -102,11 +103,16 @@ function resolveCharSpriteImage() {
   tryNext(0);
 }
 
-// 4列 x 4行のスプライトシートの指定コマ（col: 0..3, row: 0..3）を適用
+// 4列 x 4行の縦横間隔・余白ズレを吸収してコマ位置を適用（col: 0..3, row: 0..3）
 function setStandFrame(el, col, row) {
   if (!el) return;
-  const xPct = (col / 3) * 100;
-  const yPct = (row / 3) * 100;
+  const colOffsets = [0, -0.4, -0.8, -1.2];
+  const rowOffsets = [0, 0.5, 1.1, 1.6];
+
+  const baseX = (col / 3) * 100;
+  const baseY = (row / 3) * 100;
+  const xPct = Math.max(0, Math.min(100, baseX + (colOffsets[col] || 0)));
+  const yPct = Math.max(0, Math.min(100, baseY + (rowOffsets[row] || 0)));
   el.style.backgroundPosition = `${xPct}% ${yPct}%`;
 }
 
