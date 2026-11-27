@@ -5,972 +5,168 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Transit AI - 音声対応スマート経路案内</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <style>
-    body {
-      background-color: #f8fafc;
-      background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
-      background-size: 24px 24px;
-      overflow-x: hidden;
-    }
-    .markdown-body p { margin-bottom: 0.75rem; line-height: 1.8; color: #1e293b; }
-    .markdown-body ul, .markdown-body ol { padding-left: 1.35rem; margin-bottom: 0.75rem; color: #1e293b; }
-    .markdown-body ul { list-style-type: disc; }
-    .markdown-body ol { list-style-type: decimal; }
-    .markdown-body li { margin-bottom: 0.4rem; }
-    .markdown-body strong { color: #0284c7; font-weight: 700; }
-
-    @keyframes pulseDot {
-      0%, 80%, 100% { transform: scale(0.75); opacity: 0.45; }
-      40% { transform: scale(1.1); opacity: 1; }
-    }
-    .speaking-dot {
-      animation: pulseDot 1.2s infinite ease-in-out;
-    }
-    .speaking-dot:nth-child(2) { animation-delay: 0.2s; }
-    .speaking-dot:nth-child(3) { animation-delay: 0.4s; }
-
-    @keyframes micPulse {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.45); }
-      50% { box-shadow: 0 0 0 10px rgba(225, 29, 72, 0); }
-    }
-    .mic-listening {
-      animation: micPulse 1.4s infinite;
-    }
-
-    .mobile-bottom-bar {
-      padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
-    }
-    @media (max-width: 1023px) {
-      main {
-        padding-bottom: calc(6.2rem + env(safe-area-inset-bottom));
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="./style.css" />
 </head>
-<body class="text-slate-800 min-h-screen font-sans antialiased selection:bg-sky-100 selection:text-sky-900">
+<body class="text-slate-800 min-h-screen font-sans antialiased">
 
-  <!-- ヘッダー -->
-  <header class="bg-white/95 backdrop-blur-md border-b border-slate-200/90 sticky top-0 z-20">
-    <div class="max-w-6xl mx-auto px-3.5 sm:px-5 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+  <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-20">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
       <div class="flex items-center gap-2.5 min-w-0">
-        <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-sm shrink-0">
-          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
-          </svg>
-        </div>
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-lg shadow-sm shrink-0">🧭</div>
         <div class="truncate">
           <div class="flex items-center gap-1.5">
-            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900 truncate">Transit AI</h1>
-            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200 shrink-0">音声・GPS対応</span>
+            <h1 class="text-base sm:text-lg font-extrabold text-slate-900">Transit AI</h1>
+            <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">音声・GPS対応</span>
           </div>
-          <p class="text-[11px] sm:text-xs text-slate-500 truncate">話しかけて検索＆AI 経路案内</p>
+          <p class="text-[11px] text-slate-500 truncate">話しかけて検索＆AI エージェント案内</p>
         </div>
       </div>
-
-      <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-        ● AI自動連携中
-      </span>
+      <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">● AI応答準備OK</span>
     </div>
   </header>
 
   <main class="max-w-6xl mx-auto px-3 sm:px-5 py-4 sm:py-8 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-7 items-start">
-    
-    <!-- 左カラム：検索パネル -->
-    <section class="lg:col-span-4 space-y-4 lg:sticky lg:top-24">
-      <div class="bg-white border border-slate-200/90 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
-        
-        <!-- 音声検索カード -->
-        <div class="bg-gradient-to-r from-indigo-50 via-sky-50 to-blue-50 border border-sky-200 rounded-2xl p-3.5">
-          <div class="flex items-center justify-between gap-2 mb-2">
+    <!-- 左カラム：検索フォーム -->
+    <section class="lg:col-span-4 lg:sticky lg:top-24">
+      <div class="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+        <div class="bg-gradient-to-r from-indigo-50 to-sky-50 border border-sky-200 rounded-2xl p-3.5">
+          <div class="flex items-center justify-between gap-2">
             <div>
               <p class="text-xs font-extrabold text-slate-900">🎙️ 音声でルート検索</p>
               <p class="text-[11px] text-slate-600">例：「今いるところから東京駅に行く最短ルートは？」</p>
             </div>
-            <button
-              type="button"
-              id="voiceSearchBtn"
-              class="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-700 hover:to-sky-700 active:scale-95 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
-            >
-              <span id="voiceBtnIcon">🎙️</span>
-              <span id="voiceBtnText">話しかける</span>
+            <button type="button" id="voiceSearchBtn" class="shrink-0 px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-sky-600 text-white text-xs font-bold shadow-sm transition">
+              🎙️ 話しかける
             </button>
           </div>
-          <div id="voiceTranscriptBox" class="hidden mt-2 bg-white/95 border border-sky-200 rounded-xl px-3 py-2 text-xs text-slate-800">
-            <span id="voiceStatusLabel" class="font-bold text-sky-700 block mb-0.5">聞き取り中...</span>
-            <p id="voiceTranscriptText" class="font-medium text-slate-900 leading-relaxed"></p>
+          <div id="voiceBox" class="hidden mt-2 bg-white border border-sky-200 rounded-xl px-3 py-2 text-xs">
+            <span id="voiceStatus" class="font-bold text-sky-700 block"></span>
+            <p id="voiceText" class="font-medium text-slate-900"></p>
           </div>
-        </div>
-
-        <div class="flex items-center justify-between">
-          <h2 class="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
-            <span class="w-2 h-2 rounded-full bg-sky-500"></span>
-            ルート検索条件
-          </h2>
-          <span class="text-xs text-slate-400">鉄道・バス・空路</span>
         </div>
 
         <form id="searchForm" class="space-y-3.5">
-          <!-- 出発・到着ボックス -->
-          <div class="bg-slate-50 border border-slate-200/90 rounded-2xl p-3 space-y-2.5">
+          <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2.5">
             <div>
-              <div class="flex items-center justify-between mb-1.5">
-                <label for="origin" class="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
-                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                  出発地
-                </label>
-                <button
-                  type="button"
-                  id="gpsBtn"
-                  class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 hover:bg-emerald-100 active:scale-95 text-emerald-700 border border-emerald-300 transition"
-                >
-                  <span>📍 現在地を使う</span>
-                </button>
+              <div class="flex items-center justify-between mb-1">
+                <label for="origin" class="text-xs font-bold text-emerald-700">🟢 出発地</label>
+                <button type="button" id="gpsBtn" class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition">📍 現在地を使う</button>
               </div>
-              <input
-                type="text"
-                id="origin"
-                value="博多駅"
-                required
-                class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-base font-medium text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition"
-              />
-              <p id="gpsStatus" class="text-xs text-slate-500 mt-1.5 hidden"></p>
+              <input type="text" id="origin" value="博多駅" required class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-base font-medium focus:outline-none focus:border-sky-500" />
+              <p id="gpsStatus" class="text-xs mt-1 hidden"></p>
             </div>
 
-            <div class="flex items-center justify-between pt-0.5">
+            <div class="flex items-center justify-between">
               <span class="text-[11px] text-slate-400">出発と到着を入替</span>
-              <button
-                type="button"
-                id="swapBtn"
-                title="出発地と目的地を入れ替え"
-                class="px-3 py-1.5 rounded-full bg-white active:scale-95 hover:bg-sky-50 text-slate-600 hover:text-sky-600 border border-slate-300 shadow-sm text-xs font-bold flex items-center gap-1 transition"
-              >
-                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                </svg>
-                <span>入替</span>
-              </button>
+              <button type="button" id="swapBtn" class="px-3 py-1 rounded-full bg-white hover:bg-sky-50 text-slate-600 border border-slate-300 text-xs font-bold transition">⇅ 入替</button>
             </div>
 
             <div>
-              <label for="destination" class="flex items-center gap-1.5 text-xs font-bold text-rose-700 mb-1.5">
-                <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-                目的地
-              </label>
-              <input
-                type="text"
-                id="destination"
-                value="天神駅"
-                required
-                class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-base font-medium text-slate-900 focus:outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition"
-              />
+              <label for="destination" class="block text-xs font-bold text-rose-700 mb-1">🔴 目的地</label>
+              <input type="text" id="destination" value="天神駅" required class="w-full bg-white border border-slate-300 rounded-xl px-3.5 py-2.5 text-base font-medium focus:outline-none focus:border-sky-500" />
             </div>
           </div>
 
-          <!-- 飛行機の利用選択（する / しない） -->
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1.5">飛行機の利用</label>
-            <div class="grid grid-cols-2 gap-2.5">
+            <label class="block text-xs font-bold text-slate-700 mb-1">飛行機の利用</label>
+            <div class="grid grid-cols-2 gap-2">
               <label class="cursor-pointer">
                 <input type="radio" name="flightOption" value="yes" checked class="peer sr-only" />
-                <div class="text-center py-2.5 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 text-sm font-bold peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-800 transition">
-                  ✈️ 飛行機を使う
-                </div>
+                <div class="text-center py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50 text-sm font-bold peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-800">✈️ 使う</div>
               </label>
               <label class="cursor-pointer">
                 <input type="radio" name="flightOption" value="no" class="peer sr-only" />
-                <div class="text-center py-2.5 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 text-sm font-bold peer-checked:border-slate-600 peer-checked:bg-slate-200/80 peer-checked:text-slate-900 transition">
-                  🚫 飛行機を使わない
-                </div>
+                <div class="text-center py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50 text-sm font-bold peer-checked:border-slate-600 peer-checked:bg-slate-200/80 peer-checked:text-slate-900">🚫 使わない</div>
               </label>
             </div>
           </div>
 
-          <!-- 優先モード -->
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1.5">優先モード</label>
-            <div class="grid grid-cols-2 gap-2.5">
+            <label class="block text-xs font-bold text-slate-700 mb-1">優先モード</label>
+            <div class="grid grid-cols-2 gap-2">
               <label class="cursor-pointer">
                 <input type="radio" name="preference" value="shortest" checked class="peer sr-only" />
-                <div class="text-center py-3 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 text-sm font-bold peer-checked:border-sky-500 peer-checked:bg-sky-50 peer-checked:text-sky-800 transition">
-                  ⚡ 最短時間
-                </div>
+                <div class="text-center py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50 text-sm font-bold peer-checked:border-sky-500 peer-checked:bg-sky-50 peer-checked:text-sky-800">⚡ 最短時間</div>
               </label>
               <label class="cursor-pointer">
                 <input type="radio" name="preference" value="cheapest" class="peer sr-only" />
-                <div class="text-center py-3 px-3 rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-600 text-sm font-bold peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-800 transition">
-                  💴 最安運賃
-                </div>
+                <div class="text-center py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50 text-sm font-bold peer-checked:border-emerald-500 peer-checked:bg-emerald-50 peer-checked:text-emerald-800">💴 最安運賃</div>
               </label>
             </div>
           </div>
 
-          <!-- 追加の要望 -->
           <div>
-            <label for="userNote" class="block text-xs font-bold text-slate-700 mb-1.5">追加の要望（任意）</label>
-            <input
-              type="text"
-              id="userNote"
-              placeholder="例：荷物が多い、雨に濡れたくない"
-              class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-base text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20 transition"
-            />
+            <label for="userNote" class="block text-xs font-bold text-slate-700 mb-1">追加の要望（任意）</label>
+            <input type="text" id="userNote" placeholder="例：荷物が多い、雨に濡れたくない" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-base focus:outline-none focus:bg-white focus:border-sky-500" />
           </div>
 
-          <!-- PC用検索ボタン -->
-          <button
-            type="submit"
-            id="submitBtn"
-            class="hidden lg:flex w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-sm shadow-md shadow-sky-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed items-center justify-center gap-2"
-          >
-            <span>ルートを検索</span>
-          </button>
+          <button type="submit" id="submitBtn" class="hidden lg:flex w-full py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white font-bold text-sm shadow-md justify-center">ルートを検索</button>
         </form>
       </div>
     </section>
 
-    <!-- 右カラム：AI解説・候補ルート -->
+    <!-- 右カラム：AIエージェント案内＆候補 -->
     <section id="resultsSection" class="lg:col-span-8 space-y-4 sm:space-y-6">
-      <div id="emptyState" class="bg-white/90 border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-6 sm:p-10 text-center space-y-2">
+      <div id="emptyState" class="bg-white border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-8 text-center space-y-1.5">
         <p class="text-slate-700 font-bold text-sm">「🎙️ 話しかける」で音声検索、またはフォームから検索できます</p>
-        <p class="text-slate-500 text-xs">例：「今いるところから東京駅に行く最短ルートは？」「博多駅から大阪駅まで飛行機なしで安く行きたい」</p>
+        <p class="text-slate-500 text-xs">例：「今いるところから東京駅に行く最短ルートは？」</p>
       </div>
 
-      <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-8 text-center space-y-3 shadow-sm">
+      <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-8 text-center space-y-3">
         <div class="inline-block w-8 h-8 border-4 border-sky-100 border-t-sky-500 rounded-full animate-spin"></div>
-        <p class="text-sm font-bold text-slate-700">AIナビゲーターが最適ルートを組み立てています...</p>
+        <p class="text-sm font-bold text-slate-700">AIエージェントがルートを確認しています...</p>
       </div>
 
       <div id="errorState" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-4 text-rose-700 text-sm font-bold"></div>
 
       <div id="resultContainer" class="hidden space-y-4 sm:space-y-6">
-        <!-- AI 乗降ガイド（AIがしゃべっている吹き出しスタイル） -->
-        <div class="bg-gradient-to-br from-sky-50/90 via-white to-indigo-50/60 border border-sky-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm">
-          <div class="flex items-center justify-between gap-2 mb-3.5 pb-3 border-b border-sky-100">
-            <div class="flex items-center gap-2.5">
-              <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-lg shadow-sm shrink-0">
-                🤖
-              </div>
-              <div>
+        <div class="bg-white border border-sky-200 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+          <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-indigo-600 text-white flex items-center justify-center text-lg shrink-0">🤖</div>
+              <div class="truncate">
                 <div class="flex items-center gap-2">
-                  <span class="text-sm font-extrabold text-slate-900">AI 乗降ガイド</span>
-                  <span id="speakingIndicator" class="hidden items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded-full">
+                  <span class="text-sm font-extrabold text-slate-900">AI 乗降エージェント</span>
+                  <span id="speakingIndicator" class="hidden items-center gap-1 text-[11px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
                     <span class="w-1.5 h-1.5 rounded-full bg-sky-600 speaking-dot"></span>
                     <span class="w-1.5 h-1.5 rounded-full bg-sky-600 speaking-dot"></span>
                     <span class="w-1.5 h-1.5 rounded-full bg-sky-600 speaking-dot"></span>
-                    <span>案内中</span>
+                    <span>お話し中</span>
                   </span>
                 </div>
-                <p class="text-xs text-slate-500">文字と音声で分かりやすくご案内します</p>
+                <p class="text-xs text-slate-500 truncate">要点を絞って分かりやすくお答えします</p>
               </div>
             </div>
-
-            <button
-              type="button"
-              id="speakBtn"
-              class="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-sky-50 active:scale-95 text-sky-700 border border-sky-200 shadow-sm transition"
-            >
-              <span id="speakIcon">🔊</span>
-              <span id="speakLabel">音声で聞く</span>
-            </button>
+            <button type="button" id="speakBtn" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200">🔊 音声で聞く</button>
           </div>
 
-          <div class="flex items-start gap-2.5 sm:gap-3">
-            <div class="flex-1 bg-white border border-sky-200/90 rounded-2xl rounded-tl-sm p-3.5 sm:p-4 shadow-xs">
-              <p id="aiGreeting" class="text-xs sm:text-sm font-bold text-sky-700 mb-2"></p>
-              <div id="aiExplanation" class="markdown-body text-sm sm:text-base"></div>
+          <div class="flex justify-end">
+            <div id="userQueryBubble" class="max-w-[88%] bg-slate-100 text-slate-800 text-xs sm:text-sm font-medium px-3.5 py-2.5 rounded-2xl rounded-tr-sm"></div>
+          </div>
+
+          <div class="flex items-start gap-2.5">
+            <div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">AI</div>
+            <div class="flex-1 bg-sky-50/60 border border-sky-100 rounded-2xl rounded-tl-sm p-3.5 sm:p-4 space-y-2.5">
+              <p id="aiReplyLead" class="text-sm sm:text-base font-bold text-slate-900 leading-relaxed"></p>
+              <div id="aiReplyHighlights" class="space-y-2"></div>
             </div>
           </div>
         </div>
 
-        <!-- 候補ルート一覧 -->
         <div>
-          <div class="flex items-center justify-between mb-2.5 px-1">
-            <h3 class="text-xs sm:text-sm font-bold text-slate-600">
-              候補ルート一覧（タップで選択）
-            </h3>
-          </div>
-          <div id="routeCards" class="space-y-3.5 sm:space-y-4"></div>
+          <h3 class="text-xs sm:text-sm font-bold text-slate-600 mb-2.5 px-1">候補ルート一覧（タップで選択）</h3>
+          <div id="routeCards" class="space-y-3.5"></div>
         </div>
       </div>
     </section>
-
   </main>
 
-  <!-- スマホ専用：画面下部固定アクションバー（音声＋検索） -->
-  <div class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-3.5 pt-2.5 mobile-bottom-bar shadow-[0_-4px_16px_rgba(15,23,42,0.08)]">
-    <div class="flex items-center gap-2">
-      <button
-        type="button"
-        id="mobileVoiceBtn"
-        class="shrink-0 py-3.5 px-3.5 rounded-2xl bg-indigo-600 active:scale-[0.98] text-white font-bold text-sm shadow-md shadow-indigo-500/20 transition flex items-center justify-center gap-1"
-      >
-        <span id="mobileVoiceIcon">🎙️</span>
-        <span>音声</span>
-      </button>
-      <button
-        type="button"
-        id="mobileSubmitBtn"
-        class="flex-1 py-3.5 px-4 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 active:scale-[0.99] text-white font-bold text-base shadow-md shadow-sky-500/25 transition disabled:opacity-50 flex items-center justify-center gap-2"
-      >
-        <span>ルートを検索</span>
-      </button>
-    </div>
+  <!-- スマホ下部固定バー -->
+  <div class="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 px-3.5 pt-2.5 mobile-bottom-bar shadow-lg flex gap-2">
+    <button type="button" id="mobileVoiceBtn" class="shrink-0 py-3.5 px-3.5 rounded-2xl bg-indigo-600 text-white font-bold text-sm">🎙️ 音声</button>
+    <button type="button" id="mobileSubmitBtn" class="flex-1 py-3.5 rounded-2xl bg-gradient-to-r from-sky-500 to-blue-600 text-white font-bold text-base">ルートを検索</button>
   </div>
 
-  <script>
-    let currentCandidates = [];
-    let currentBestRouteId = "";
-    let selectedRouteId = "";
-    let currentOriginCoords = null;
-    let latestRawExplanation = "";
-    let typingTimer = null;
-    let isSpeaking = false;
-    let autoSpeakNextResult = false;
-    let recognition = null;
-    let isListening = false;
-
-    const form = document.getElementById("searchForm");
-    const swapBtn = document.getElementById("swapBtn");
-    const gpsBtn = document.getElementById("gpsBtn");
-    const gpsStatus = document.getElementById("gpsStatus");
-    const originInput = document.getElementById("origin");
-    const destInput = document.getElementById("destination");
-    const userNoteInput = document.getElementById("userNote");
-    const submitBtn = document.getElementById("submitBtn");
-    const mobileSubmitBtn = document.getElementById("mobileSubmitBtn");
-
-    const voiceSearchBtn = document.getElementById("voiceSearchBtn");
-    const voiceBtnIcon = document.getElementById("voiceBtnIcon");
-    const voiceBtnText = document.getElementById("voiceBtnText");
-    const mobileVoiceBtn = document.getElementById("mobileVoiceBtn");
-    const mobileVoiceIcon = document.getElementById("mobileVoiceIcon");
-    const voiceTranscriptBox = document.getElementById("voiceTranscriptBox");
-    const voiceStatusLabel = document.getElementById("voiceStatusLabel");
-    const voiceTranscriptText = document.getElementById("voiceTranscriptText");
-
-    const emptyState = document.getElementById("emptyState");
-    const loadingState = document.getElementById("loadingState");
-    const errorState = document.getElementById("errorState");
-    const resultContainer = document.getElementById("resultContainer");
-    const aiGreetingEl = document.getElementById("aiGreeting");
-    const aiExplanationEl = document.getElementById("aiExplanation");
-    const routeCardsEl = document.getElementById("routeCards");
-    const speakingIndicator = document.getElementById("speakingIndicator");
-    const speakBtn = document.getElementById("speakBtn");
-    const speakIcon = document.getElementById("speakIcon");
-    const speakLabel = document.getElementById("speakLabel");
-
-    function stopSpeech() {
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      isSpeaking = false;
-      speakIcon.textContent = "🔊";
-      speakLabel.textContent = "音声で聞く";
-      speakingIndicator.classList.add("hidden");
-      speakingIndicator.classList.remove("flex");
-    }
-
-    function stripMarkdownForSpeech(mdText) {
-      return mdText
-        .replace(/[#*`>-]/g, "")
-        .replace(/¥(\d+)/g, "$1円")
-        .replace(/\n+/g, "。")
-        .replace(/。+/g, "。")
-        .trim();
-    }
-
-    function speakGuideText() {
-      if (!("speechSynthesis" in window)) {
-        return;
-      }
-      const plainText = `${aiGreetingEl.textContent}。${stripMarkdownForSpeech(latestRawExplanation)}`;
-      if (!plainText.trim()) return;
-
-      stopSpeech();
-      const utterance = new SpeechSynthesisUtterance(plainText);
-      utterance.lang = "ja-JP";
-      utterance.rate = 1.05;
-      utterance.onstart = () => {
-        isSpeaking = true;
-        speakIcon.textContent = "⏹️";
-        speakLabel.textContent = "停止する";
-        speakingIndicator.classList.remove("hidden");
-        speakingIndicator.classList.add("flex");
-      };
-      utterance.onend = stopSpeech;
-      utterance.onerror = stopSpeech;
-      window.speechSynthesis.speak(utterance);
-    }
-
-    speakBtn.addEventListener("click", () => {
-      if (isSpeaking) {
-        stopSpeech();
-      } else {
-        speakGuideText();
-      }
-    });
-
-    function animateSpokenMarkdown(markdownText, origin, destination, shouldAutoSpeak = false) {
-      if (typingTimer) {
-        clearInterval(typingTimer);
-        typingTimer = null;
-      }
-      latestRawExplanation = markdownText;
-      aiGreetingEl.textContent = `「${origin}」から「${destination}」までの乗降ポイントをご案内しますね！`;
-      aiExplanationEl.innerHTML = "";
-
-      speakingIndicator.classList.remove("hidden");
-      speakingIndicator.classList.add("flex");
-
-      if (shouldAutoSpeak) {
-        speakGuideText();
-      }
-
-      let index = 0;
-      const step = Math.max(4, Math.ceil(markdownText.length / 75));
-
-      typingTimer = setInterval(() => {
-        index = Math.min(markdownText.length, index + step);
-        aiExplanationEl.innerHTML = marked.parse(markdownText.slice(0, index));
-        if (index >= markdownText.length) {
-          clearInterval(typingTimer);
-          typingTimer = null;
-          if (!isSpeaking) {
-            speakingIndicator.classList.add("hidden");
-            speakingIndicator.classList.remove("flex");
-          }
-        }
-      }, 22);
-    }
-
-    originInput.addEventListener("input", () => {
-      currentOriginCoords = null;
-      gpsStatus.classList.add("hidden");
-    });
-
-    async function reverseGeocodeNominatim(lat, lng) {
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
-        lat
-      )}&lon=${encodeURIComponent(lng)}&accept-language=ja&addressdetails=1&zoom=18`;
-
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3500);
-
-      try {
-        const res = await fetch(url, {
-          signal: controller.signal,
-          headers: { Accept: "application/json" },
-        });
-        if (!res.ok) return "";
-
-        const data = await res.json();
-        const addr = data.address || {};
-
-        const prefecture = addr.state || addr.province || "";
-        const city =
-          addr.city ||
-          addr.ward ||
-          addr.town ||
-          addr.village ||
-          addr.county ||
-          "";
-        const townOrBlock = [
-          addr.city_district,
-          addr.suburb,
-          addr.quarter,
-          addr.neighbourhood,
-          addr.road,
-          addr.house_number,
-        ]
-          .filter(Boolean)
-          .join("");
-
-        return `${prefecture}${city}${townOrBlock}`.trim();
-      } catch (_err) {
-        return "";
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    async function reverseGeocodeGsi(lat, lng) {
-      const url = `https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${encodeURIComponent(
-        lat
-      )}&lon=${encodeURIComponent(lng)}`;
-
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3500);
-
-      try {
-        const res = await fetch(url, { signal: controller.signal });
-        if (!res.ok) return "";
-
-        const data = await res.json();
-        const results = data?.results;
-        if (!results || !results.muniCd) return "";
-
-        const muniCd = String(results.muniCd).padStart(5, "0");
-        const townName = results.lv01Nm || "";
-        const prefCode = muniCd.slice(0, 2);
-
-        const prefMap = {
-          "01": "北海道", "02": "青森県", "03": "岩手県", "04": "宮城県", "05": "秋田県",
-          "06": "山形県", "07": "福島県", "08": "茨城県", "09": "栃木県", "10": "群馬県",
-          "11": "埼玉県", "12": "千葉県", "13": "東京都", "14": "神奈川県", "15": "新潟県",
-          "16": "富山県", "17": "石川県", "18": "福井県", "19": "山梨県", "20": "長野県",
-          "21": "岐阜県", "22": "静岡県", "23": "愛知県", "24": "三重県", "25": "滋賀県",
-          "26": "京都府", "27": "大阪府", "28": "兵庫県", "29": "奈良県", "30": "和歌山県",
-          "31": "鳥取県", "32": "島根県", "33": "岡山県", "34": "広島県", "35": "山口県",
-          "36": "徳島県", "37": "香川県", "38": "愛媛県", "39": "高知県", "40": "福岡県",
-          "41": "佐賀県", "42": "長崎県", "43": "熊本県", "44": "大分県", "45": "宮崎県",
-          "46": "鹿児島県", "47": "沖縄県",
-        };
-
-        const prefName = prefMap[prefCode] || "";
-        return `${prefName}${townName}`.trim();
-      } catch (_err) {
-        return "";
-      } finally {
-        clearTimeout(timer);
-      }
-    }
-
-    function endsWithWardOnly(addr) {
-      return /[都道府県市区郡]$/.test(addr.trim());
-    }
-
-    async function reverseGeocodeToAddress(lat, lng) {
-      const [osmAddr, gsiAddr] = await Promise.all([
-        reverseGeocodeNominatim(lat, lng),
-        reverseGeocodeGsi(lat, lng),
-      ]);
-
-      if (gsiAddr && (!osmAddr || endsWithWardOnly(osmAddr) || gsiAddr.length > osmAddr.length)) {
-        return gsiAddr;
-      }
-      if (osmAddr) {
-        return osmAddr;
-      }
-      return null;
-    }
-
-    function fetchCurrentLocationAsOrigin() {
-      return new Promise((resolve) => {
-        if (!navigator.geolocation) {
-          gpsStatus.textContent = "このブラウザは位置情報（GPS）に対応していません。";
-          gpsStatus.className = "text-xs text-rose-600 font-medium mt-1.5";
-          gpsStatus.classList.remove("hidden");
-          resolve(false);
-          return;
-        }
-
-        gpsBtn.disabled = true;
-        gpsBtn.textContent = "📡 取得中...";
-        gpsStatus.textContent = "現在地と住所を取得しています...";
-        gpsStatus.className = "text-xs text-slate-600 mt-1.5";
-        gpsStatus.classList.remove("hidden");
-
-        navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const lat = Number(pos.coords.latitude.toFixed(5));
-            const lng = Number(pos.coords.longitude.toFixed(5));
-            currentOriginCoords = [lat, lng];
-
-            const address = await reverseGeocodeToAddress(lat, lng);
-            if (address) {
-              originInput.value = address;
-              gpsStatus.textContent = `現在地住所を取得しました（誤差 約${Math.round(
-                pos.coords.accuracy
-              )}m）`;
-            } else {
-              originInput.value = `現在地 (${lat}, ${lng})`;
-              gpsStatus.textContent = `GPS取得完了・座標表示（誤差 約${Math.round(
-                pos.coords.accuracy
-              )}m）`;
-            }
-
-            gpsStatus.className = "text-xs text-emerald-700 font-bold mt-1.5";
-            gpsStatus.classList.remove("hidden");
-            gpsBtn.disabled = false;
-            gpsBtn.innerHTML = "<span>📍 現在地を使う</span>";
-            resolve(true);
-          },
-          (err) => {
-            let msg = "現在地を取得できませんでした。";
-            if (err.code === err.PERMISSION_DENIED) {
-              msg = "位置情報の許可がオフになっています。設定から許可してください。";
-            } else if (err.code === err.TIMEOUT) {
-              msg = "位置情報の取得がタイムアウトしました。";
-            }
-            gpsStatus.textContent = msg;
-            gpsStatus.className = "text-xs text-rose-600 font-medium mt-1.5";
-            gpsStatus.classList.remove("hidden");
-            gpsBtn.disabled = false;
-            gpsBtn.innerHTML = "<span>📍 現在地を使う</span>";
-            resolve(false);
-          },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-        );
-      });
-    }
-
-    gpsBtn.addEventListener("click", () => {
-      fetchCurrentLocationAsOrigin();
-    });
-
-    // 音声認識テキストを解析してフォームへ反映
-    function parseSpokenQuery(spokenText) {
-      const cleaned = spokenText.replace(/[？?！!。、]/g, " ").trim();
-
-      let useCurrentLocation = /(今いるところ|いまいるところ|現在地|ここから|今いる場所)/.test(cleaned);
-      let extractedOrigin = "";
-      let extractedDest = "";
-
-      const fromToMatch = cleaned.match(
-        /(.+?)から\s*(.+?)(?:まで|へ|に|にいく|に行く|に行きたい|への|の最短|の最安|のルート|ルート|経路|行き方|$)/
-      );
-
-      if (fromToMatch) {
-        const rawFrom = fromToMatch[1].trim();
-        const rawTo = fromToMatch[2].trim();
-
-        if (/(今いるところ|いまいるところ|現在地|ここ|今いる場所)/.test(rawFrom)) {
-          useCurrentLocation = true;
-        } else {
-          extractedOrigin = rawFrom;
-        }
-        extractedDest = rawTo;
-      } else {
-        const toOnlyMatch = cleaned.match(
-          /(.+?)(?:まで|へ|に|にいく|に行く|に行きたい|への|の最短|の最安|のルート|ルート|経路|行き方)/
-        );
-        if (toOnlyMatch) {
-          extractedDest = toOnlyMatch[1]
-            .replace(/^(今いるところ|いまいるところ|現在地|ここ)\s*/, "")
-            .trim();
-        }
-      }
-
-      // 優先モード判定
-      if (/(安い|安く|最安|節約|運賃重視)/.test(cleaned)) {
-        const cheapestRadio = document.querySelector('input[name="preference"][value="cheapest"]');
-        if (cheapestRadio) cheapestRadio.checked = true;
-      } else if (/(最短|早い|早く|速い|速く|急ぎ|時間重視)/.test(cleaned)) {
-        const shortestRadio = document.querySelector('input[name="preference"][value="shortest"]');
-        if (shortestRadio) shortestRadio.checked = true;
-      }
-
-      // 飛行機利用有無判定
-      if (/(飛行機なし|飛行機を使わない|飛行機以外|新幹線|電車だけ|バスだけ)/.test(cleaned)) {
-        const noFlightRadio = document.querySelector('input[name="flightOption"][value="no"]');
-        if (noFlightRadio) noFlightRadio.checked = true;
-      } else if (/(飛行機|空路|フライト)/.test(cleaned)) {
-        const yesFlightRadio = document.querySelector('input[name="flightOption"][value="yes"]');
-        if (yesFlightRadio) yesFlightRadio.checked = true;
-      }
-
-      return {
-        useCurrentLocation,
-        origin: extractedOrigin,
-        destination: extractedDest,
-      };
-    }
-
-    async function handleVoiceCommandResult(transcript) {
-      voiceStatusLabel.textContent = "解析して検索します...";
-      voiceTranscriptText.textContent = `「${transcript}」`;
-
-      const parsed = parseSpokenQuery(transcript);
-
-      if (parsed.destination) {
-        destInput.value = parsed.destination;
-      }
-
-      if (parsed.useCurrentLocation) {
-        await fetchCurrentLocationAsOrigin();
-      } else if (parsed.origin) {
-        originInput.value = parsed.origin;
-        currentOriginCoords = null;
-        gpsStatus.classList.add("hidden");
-      }
-
-      userNoteInput.value = transcript;
-      autoSpeakNextResult = true;
-      form.requestSubmit();
-    }
-
-    function setListeningUI(listening) {
-      isListening = listening;
-      if (listening) {
-        voiceSearchBtn.classList.add("mic-listening", "from-rose-600", "to-pink-600");
-        voiceSearchBtn.classList.remove("from-indigo-600", "to-sky-600");
-        voiceBtnIcon.textContent = "⏹️";
-        voiceBtnText.textContent = "聞き取り中";
-        mobileVoiceBtn.classList.add("mic-listening", "bg-rose-600");
-        mobileVoiceBtn.classList.remove("bg-indigo-600");
-        mobileVoiceIcon.textContent = "⏹️";
-
-        voiceTranscriptBox.classList.remove("hidden");
-        voiceStatusLabel.textContent = "🎙️ 話しかけてください...";
-        voiceTranscriptText.textContent = "";
-      } else {
-        voiceSearchBtn.classList.remove("mic-listening", "from-rose-600", "to-pink-600");
-        voiceSearchBtn.classList.add("from-indigo-600", "to-sky-600");
-        voiceBtnIcon.textContent = "🎙️";
-        voiceBtnText.textContent = "話しかける";
-        mobileVoiceBtn.classList.remove("mic-listening", "bg-rose-600");
-        mobileVoiceBtn.classList.add("bg-indigo-600");
-        mobileVoiceIcon.textContent = "🎙️";
-      }
-    }
-
-    function startVoiceRecognition() {
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        voiceTranscriptBox.classList.remove("hidden");
-        voiceStatusLabel.textContent = "音声認識に未対応のブラウザです";
-        voiceTranscriptText.textContent = "Chrome や Safari などの対応ブラウザをご利用ください。";
-        return;
-      }
-
-      if (isListening && recognition) {
-        recognition.stop();
-        return;
-      }
-
-      stopSpeech();
-
-      recognition = new SpeechRecognition();
-      recognition.lang = "ja-JP";
-      recognition.interimResults = true;
-      recognition.maxAlternatives = 1;
-
-      let finalTranscript = "";
-
-      recognition.onstart = () => {
-        setListeningUI(true);
-      };
-
-      recognition.onresult = (event) => {
-        let interim = "";
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const text = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalTranscript += text;
-          } else {
-            interim += text;
-          }
-        }
-        voiceTranscriptText.textContent = finalTranscript || interim;
-      };
-
-      recognition.onerror = (event) => {
-        setListeningUI(false);
-        voiceTranscriptBox.classList.remove("hidden");
-        voiceStatusLabel.textContent = "音声を聞き取れませんでした";
-        voiceTranscriptText.textContent =
-          event.error === "not-allowed"
-            ? "マイクの使用許可をオンにしてもう一度お試しください。"
-            : "もう一度「話しかける」を押して話してください。";
-      };
-
-      recognition.onend = () => {
-        setListeningUI(false);
-        const spoken = (finalTranscript || voiceTranscriptText.textContent).trim();
-        if (spoken && !spoken.startsWith("マイクの使用") && !spoken.startsWith("もう一度")) {
-          handleVoiceCommandResult(spoken);
-        }
-      };
-
-      recognition.start();
-    }
-
-    voiceSearchBtn.addEventListener("click", startVoiceRecognition);
-    mobileVoiceBtn.addEventListener("click", startVoiceRecognition);
-
-    swapBtn.addEventListener("click", () => {
-      const temp = originInput.value;
-      originInput.value = destInput.value;
-      destInput.value = temp;
-      currentOriginCoords = null;
-      gpsStatus.classList.add("hidden");
-    });
-
-    mobileSubmitBtn.addEventListener("click", () => {
-      form.requestSubmit();
-    });
-
-    function setSubmitting(isSubmitting) {
-      submitBtn.disabled = isSubmitting;
-      mobileSubmitBtn.disabled = isSubmitting;
-      mobileSubmitBtn.textContent = isSubmitting ? "検索中..." : "ルートを検索";
-    }
-
-    function getModeBadge(mode) {
-      if (mode === "flight") {
-        return '<span class="px-2 py-0.5 text-xs font-bold rounded-md bg-indigo-50 text-indigo-800 border border-indigo-200">✈️ 飛行機</span>';
-      }
-      if (mode === "train") {
-        return '<span class="px-2 py-0.5 text-xs font-bold rounded-md bg-sky-50 text-sky-800 border border-sky-200">🚃 電車</span>';
-      }
-      if (mode === "bus") {
-        return '<span class="px-2 py-0.5 text-xs font-bold rounded-md bg-amber-50 text-amber-800 border border-amber-200">🚌 バス</span>';
-      }
-      return '<span class="px-2 py-0.5 text-xs font-bold rounded-md bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>';
-    }
-
-    function renderRouteCards() {
-      routeCardsEl.innerHTML = currentCandidates
-        .map((r) => {
-          const isBest = r.routeId === currentBestRouteId;
-          const isSelected = r.routeId === selectedRouteId;
-
-          const legsHtml = r.legs
-            .map(
-              (leg) => `
-                <div class="relative pl-4 sm:pl-5 pb-3.5 last:pb-0 border-l-2 ${
-                  isSelected ? "border-sky-400" : "border-slate-200"
-                }">
-                  <span class="absolute -left-[7px] top-1.5 w-3 h-3 rounded-full border-2 border-white shadow-sm ${
-                    isSelected ? "bg-sky-500" : "bg-slate-400"
-                  }"></span>
-                  <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
-                    ${getModeBadge(leg.mode)}
-                    <span class="text-sm font-bold text-slate-900">${leg.lineName}</span>
-                    <span class="text-xs font-medium text-slate-500">(${leg.durationMinutes}分)</span>
-                  </div>
-                  <div class="bg-slate-50 border border-slate-200/90 rounded-xl p-3 text-xs sm:text-sm space-y-2">
-                    <div class="flex items-start gap-2">
-                      <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-900 font-bold text-[11px] shrink-0">乗車</span>
-                      <span class="text-slate-800 font-medium leading-snug">${leg.boardAt}</span>
-                    </div>
-                    <div class="flex items-start gap-2">
-                      <span class="px-2 py-0.5 rounded bg-rose-100 text-rose-900 font-bold text-[11px] shrink-0">下車</span>
-                      <span class="text-slate-800 font-medium leading-snug">${leg.alightAt}</span>
-                    </div>
-                    ${
-                      leg.note
-                        ? `<p class="text-xs text-slate-600 pt-0.5 leading-relaxed">💡 ${leg.note}</p>`
-                        : ""
-                    }
-                  </div>
-                </div>
-              `
-            )
-            .join("");
-
-          return `
-            <div
-              onclick="selectRouteById('${r.routeId}')"
-              class="cursor-pointer rounded-2xl sm:rounded-3xl p-4 sm:p-5 bg-white border-2 transition-all ${
-                isSelected
-                  ? "border-sky-500 shadow-md shadow-sky-100"
-                  : "border-slate-200 hover:border-slate-300 shadow-sm"
-              }"
-            >
-              <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 mb-3.5 pb-3 border-b border-slate-100">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="w-7 h-7 rounded-xl text-xs font-extrabold flex items-center justify-center shrink-0 ${
-                    isBest ? "bg-sky-500 text-white shadow-sm" : "bg-slate-100 text-slate-700"
-                  }">
-                    ${r.routeId}
-                  </span>
-                  <span class="font-bold text-base text-slate-900">${r.summary}</span>
-                  ${
-                    isBest
-                      ? '<span class="text-xs font-bold px-2.5 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-200">おすすめ</span>'
-                      : ""
-                  }
-                  ${
-                    isSelected
-                      ? '<span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">選択中</span>'
-                      : ""
-                  }
-                </div>
-                <div class="flex items-center gap-4 text-base bg-slate-50 sm:bg-transparent px-3 py-1.5 sm:p-0 rounded-xl">
-                  <span class="font-extrabold text-slate-900">${r.durationMinutes}<span class="text-xs font-normal text-slate-500 ml-0.5">分</span></span>
-                  <span class="font-extrabold text-emerald-600">¥${r.fareYen}</span>
-                  <span class="text-xs font-semibold text-slate-600">乗換 ${r.transfers}回</span>
-                </div>
-              </div>
-
-              <div class="ml-1">
-                ${legsHtml}
-              </div>
-            </div>
-          `;
-        })
-        .join("");
-    }
-
-    window.selectRouteById = function (routeId) {
-      if (currentCandidates.some((c) => c.routeId === routeId)) {
-        selectedRouteId = routeId;
-        renderRouteCards();
-      }
-    };
-
-    form.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      stopSpeech();
-
-      const shouldAutoSpeak = autoSpeakNextResult;
-      autoSpeakNextResult = false;
-
-      const origin = originInput.value.trim();
-      const destination = destInput.value.trim();
-      const includeFlight = document.querySelector('input[name="flightOption"]:checked').value === "yes";
-      const preference = document.querySelector('input[name="preference"]:checked').value;
-      const userNote = userNoteInput.value.trim();
-
-      emptyState.classList.add("hidden");
-      errorState.classList.add("hidden");
-      resultContainer.classList.add("hidden");
-      loadingState.classList.remove("hidden");
-      setSubmitting(true);
-
-      try {
-        const res = await fetch("/api/search", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            origin,
-            destination,
-            includeFlight,
-            preference,
-            userNote,
-            originCoords: currentOriginCoords,
-          }),
-        });
-
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "検索に失敗しました");
-        }
-
-        currentCandidates = data.candidates;
-        currentBestRouteId = data.bestRouteId;
-        const best = currentCandidates.find((c) => c.routeId === currentBestRouteId) || currentCandidates[0];
-        selectedRouteId = best ? best.routeId : "";
-
-        renderRouteCards();
-
-        loadingState.classList.add("hidden");
-        resultContainer.classList.remove("hidden");
-        animateSpokenMarkdown(data.aiExplanation, origin, destination, shouldAutoSpeak);
-
-        if (window.innerWidth < 1024) {
-          document.getElementById("resultsSection").scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      } catch (err) {
-        loadingState.classList.add("hidden");
-        errorState.textContent = "エラー: " + err.message;
-        errorState.classList.remove("hidden");
-      } finally {
-        setSubmitting(false);
-      }
-    });
-  </script>
+  <script src="./app.js"></script>
 </body>
 </html>
