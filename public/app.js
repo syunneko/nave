@@ -10,12 +10,47 @@ let autoSpeak = false;
 let recognition = null;
 let isListening = false;
 
+// 別画面（設定モーダル）で管理する状態
+let searchSettings = {
+  includeFlight: true,
+  preference: "shortest", // "shortest" | "cheapest"
+};
+
 const MODE_BADGE = {
   flight: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-indigo-50 text-indigo-800 border border-indigo-200">✈️ 飛行機</span>',
   train: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-sky-50 text-sky-800 border border-sky-200">🚃 電車</span>',
   bus: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-amber-50 text-amber-800 border border-amber-200">🚌 バス</span>',
   walk: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>',
 };
+
+function updateSettingsSummary() {
+  const flightLabel = searchSettings.includeFlight ? "✈️ 使う" : "🚫 使わない";
+  const prefLabel = searchSettings.preference === "shortest" ? "⚡ 一番早い" : "💴 一番安い";
+  $("settingsSummary").textContent = `${flightLabel} ／ ${prefLabel}`;
+}
+
+function openSettingsModal() {
+  document.querySelector(`input[name="modalFlightOption"][value="${searchSettings.includeFlight ? "yes" : "no"}"]`).checked = true;
+  document.querySelector(`input[name="modalPreference"][value="${searchSettings.preference}"]`).checked = true;
+  $("settingsModal").classList.remove("hidden");
+}
+
+function closeSettingsModal() {
+  $("settingsModal").classList.add("hidden");
+}
+
+$("openSettingsBtn").onclick = openSettingsModal;
+$("openSettingsInlineBtn").onclick = openSettingsModal;
+$("closeSettingsBtn").onclick = closeSettingsModal;
+
+$("saveSettingsBtn").onclick = () => {
+  searchSettings.includeFlight = document.querySelector('input[name="modalFlightOption"]:checked').value === "yes";
+  searchSettings.preference = document.querySelector('input[name="modalPreference"]:checked').value;
+  updateSettingsSummary();
+  closeSettingsModal();
+};
+
+updateSettingsSummary();
 
 function stopSpeech() {
   if ("speechSynthesis" in window) speechSynthesis.cancel();
@@ -129,12 +164,13 @@ function parseVoice(text) {
     if (m2) to = m2[1].replace(/^(今いるところ|いまいるところ|現在地|ここ)\s*/, "").trim();
   }
 
-  if (/(安い|安く|最安|節約)/.test(s)) document.querySelector('input[name="preference"][value="cheapest"]').checked = true;
-  else if (/(最短|早い|早く|速い|速く)/.test(s)) document.querySelector('input[name="preference"][value="shortest"]').checked = true;
+  if (/(安い|安く|最安|節約)/.test(s)) searchSettings.preference = "cheapest";
+  else if (/(最短|早い|早く|速い|速く)/.test(s)) searchSettings.preference = "shortest";
 
-  if (/(飛行機なし|飛行機を使わない|飛行機以外|新幹線|電車だけ|バスだけ)/.test(s)) document.querySelector('input[name="flightOption"][value="no"]').checked = true;
-  else if (/(飛行機|空路)/.test(s)) document.querySelector('input[name="flightOption"][value="yes"]').checked = true;
+  if (/(飛行機なし|飛行機を使わない|飛行機以外|新幹線|電車だけ|バスだけ)/.test(s)) searchSettings.includeFlight = false;
+  else if (/(飛行機|空路)/.test(s)) searchSettings.includeFlight = true;
 
+  updateSettingsSummary();
   return { useGps, from, to };
 }
 
@@ -205,7 +241,7 @@ $("mobileSubmitBtn").onclick = () => $("searchForm").requestSubmit();
 
 function renderAgentReply(origin, destination, preference, shouldAutoSpeak) {
   const best = candidates.find((c) => c.routeId === bestId) || candidates[0];
-  const prefText = preference === "shortest" ? "最短時間" : "最安運賃";
+  const prefText = preference === "shortest" ? "一番早い" : "一番安い";
   const note = $("userNote").value.trim();
 
   $("userQueryBubble").textContent = note ? `「${note}」` : `${origin} から ${destination} まで（${prefText}優先）`;
@@ -300,8 +336,7 @@ $("searchForm").onsubmit = async (e) => {
 
   const origin = $("origin").value.trim();
   const destination = $("destination").value.trim();
-  const includeFlight = document.querySelector('input[name="flightOption"]:checked').value === "yes";
-  const preference = document.querySelector('input[name="preference"]:checked').value;
+  const { includeFlight, preference } = searchSettings;
   const userNote = $("userNote").value.trim();
 
   $("emptyState").classList.add("hidden");
