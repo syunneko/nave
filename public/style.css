@@ -42,7 +42,18 @@ body {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-4px);
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes charGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(14, 165, 233, 0.45));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(79, 70, 229, 0.85));
+    transform: scale(1.04);
   }
 }
 
@@ -51,7 +62,7 @@ body {
     transform: translateY(0px) scale(1);
   }
   30% {
-    transform: translateY(-6px) scale(1.03);
+    transform: translateY(-7px) scale(1.04);
   }
   60% {
     transform: translateY(-1px) scale(0.99);
@@ -63,11 +74,9 @@ body {
 }
 
 .char-listening {
-  border-color: #0284c7 !important;
-  animation: micPulse 1.3s infinite;
+  animation: charGlow 1.3s ease-in-out infinite;
 }
 
 .char-speaking {
-  border-color: #4f46e5 !important;
   animation: charTalk 0.55s ease-in-out infinite;
 }
