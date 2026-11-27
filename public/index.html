@@ -12,7 +12,7 @@
   <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-20">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
       <div class="flex items-center gap-2.5 min-w-0">
-        <img src="./DEMO.jpg" alt="ナビロボット" class="w-9 h-9 rounded-xl object-cover border border-sky-200 bg-white shadow-sm shrink-0" />
+        <img src="./DEMO.png" alt="ナビロボット" class="w-9 h-9 rounded-xl object-contain border border-sky-200 bg-white shadow-sm shrink-0 p-0.5" />
         <div class="truncate">
           <div class="flex items-center gap-1.5">
             <h1 class="text-base sm:text-lg font-extrabold text-slate-900">Transit AI</h1>
@@ -35,7 +35,7 @@
       <div class="bg-gradient-to-b from-sky-50 via-white to-indigo-50/60 border border-sky-200 rounded-2xl sm:rounded-3xl p-4 shadow-sm">
         <div class="flex items-center gap-3.5">
           <div id="avatarWrap" class="relative w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-white border-2 border-sky-200 shadow-sm flex items-center justify-center shrink-0 overflow-hidden char-idle">
-            <img src="./DEMO.jpg" alt="案内ロボット" class="w-full h-full object-contain p-1" />
+            <img src="./DEMO.png" alt="案内ロボット" class="w-full h-full object-contain p-1" />
           </div>
           <div class="min-w-0 flex-1 space-y-1.5">
             <div class="flex items-center gap-1.5 flex-wrap">
@@ -106,13 +106,13 @@
     <!-- 右カラム：AIエージェント案内＆候補 -->
     <section id="resultsSection" class="lg:col-span-8 space-y-4 sm:space-y-6">
       <div id="emptyState" class="bg-white border border-dashed border-slate-300 rounded-2xl sm:rounded-3xl p-8 text-center space-y-2">
-        <img src="./DEMO.jpg" alt="ナビロボ" class="w-16 h-16 mx-auto rounded-2xl object-contain border border-sky-100 p-1 char-idle" />
+        <img src="./DEMO.png" alt="ナビロボ" class="w-16 h-16 mx-auto rounded-2xl object-contain border border-sky-100 p-1 char-idle" />
         <p class="text-slate-700 font-bold text-sm">「🎙️ 話しかける」を押して、ナビロボに行き先を伝えてね！</p>
         <p class="text-slate-500 text-xs">例：「今いるところから福岡空港まで一番早いルートは？」「天神まで安く行きたい」</p>
       </div>
 
       <div id="loadingState" class="hidden bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-8 text-center space-y-3">
-        <img src="./DEMO.jpg" alt="検索中" class="w-16 h-16 mx-auto rounded-2xl object-contain p-1 animate-bounce" />
+        <img src="./DEMO.png" alt="検索中" class="w-16 h-16 mx-auto rounded-2xl object-contain p-1 animate-bounce" />
         <p class="text-sm font-bold text-slate-700">ナビロボがぴったりなルートを探しているよ...</p>
       </div>
 
@@ -123,7 +123,7 @@
           <div class="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
             <div class="flex items-center gap-2.5 min-w-0">
               <div id="replyAvatarWrap" class="w-11 h-11 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center shrink-0 overflow-hidden char-idle">
-                <img src="./DEMO.jpg" alt="ナビロボ" class="w-full h-full object-contain p-0.5" />
+                <img src="./DEMO.png" alt="ナビロボ" class="w-full h-full object-contain p-0.5" />
               </div>
               <div class="truncate">
                 <div class="flex items-center gap-2">
@@ -146,7 +146,7 @@
           </div>
 
           <div class="flex items-start gap-2.5">
-            <img src="./DEMO.jpg" alt="ナビロボ" class="w-9 h-9 rounded-full bg-sky-50 border border-sky-200 object-contain p-0.5 shrink-0 mt-0.5" />
+            <img src="./DEMO.png" alt="ナビロボ" class="w-9 h-9 rounded-full bg-sky-50 border border-sky-200 object-contain p-0.5 shrink-0 mt-0.5" />
             <div class="flex-1 bg-sky-50/70 border border-sky-100 rounded-2xl rounded-tl-sm p-3.5 sm:p-4 space-y-2.5">
               <p id="aiReplyLead" class="text-sm sm:text-base font-bold text-slate-900 leading-relaxed"></p>
               <div id="aiReplyHighlights" class="space-y-2"></div>
