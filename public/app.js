@@ -13,6 +13,7 @@ let isListening = false;
 let currentMode = "voice"; // "voice" | "input"
 let idleExprTimer = null;
 let talkExprTimer = null;
+let cachedCuteVoice = null;
 
 let searchSettings = {
   includeFlight: true,
@@ -25,6 +26,59 @@ const MODE_BADGE = {
   bus: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-amber-50 text-amber-800 border border-amber-200">🚌 バス</span>',
   walk: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>',
 };
+
+// かわいい系・女性寄りの日本語音声を優先選択
+function pickCuteJapaneseVoice() {
+  if (!("speechSynthesis" in window)) return null;
+  if (cachedCuteVoice) return cachedCuteVoice;
+
+  const voices = speechSynthesis.getVoices() || [];
+  const jaVoices = voices.filter((v) => /ja(-|_)?JP/i.test(v.lang));
+  if (!jaVoices.length) return null;
+
+  const preferredKeywords = [
+    /kyoko/i,
+    /haruka/i,
+    /nanami/i,
+    /sayaka/i,
+    /mizuki/i,
+    /ayumi/i,
+    /google\s*日本語/i,
+    /female/i,
+    /girl/i,
+  ];
+  const avoidedKeywords = [/otoya/i, /ichiro/i, /keita/i, /male/i];
+
+  for (const pat of preferredKeywords) {
+    const matched = jaVoices.find((v) => pat.test(v.name));
+    if (matched) {
+      cachedCuteVoice = matched;
+      return matched;
+    }
+  }
+
+  const nonMale = jaVoices.find((v) => !avoidedKeywords.some((pat) => pat.test(v.name)));
+  cachedCuteVoice = nonMale || jaVoices[0];
+  return cachedCuteVoice;
+}
+
+if ("speechSynthesis" in window) {
+  speechSynthesis.onvoiceschanged = () => {
+    cachedCuteVoice = null;
+    pickCuteJapaneseVoice();
+  };
+}
+
+// 読み上げ用に語尾や句読点をかわいく整える
+function prettifySpeechText(rawText) {
+  return String(rawText || "")
+    .replace(/向かうよ！/g, "行ってみようねっ！")
+    .replace(/見つかったよ！/g, "見つけたよ〜！")
+    .replace(/調べているよ！/g, "調べてみるね〜！")
+    .replace(/。/g, "、")
+    .replace(/！+/g, "っ！")
+    .trim();
+}
 
 // DEMO-stand.jpg / DEMO-stand.png の存在を確認して CSS 変数を設定
 function resolveStandImage() {
@@ -122,7 +176,7 @@ function setCharacterState(state, bubbleText) {
 
   if (state === "listening") {
     avatar.classList.add("char-listening");
-    setStandFrame(standSprite, 1, 3); // キラキラ笑顔
+    setStandFrame(standSprite, 1, 3);
     badge.textContent = "👂 聞き取り中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
   } else if (state === "speaking") {
@@ -149,12 +203,12 @@ function setCharacterState(state, bubbleText) {
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700";
   } else if (state === "thinking") {
     avatar.classList.add("char-idle");
-    setStandFrame(standSprite, 0, 1); // ぱっちり
+    setStandFrame(standSprite, 0, 1);
     badge.textContent = "🔍 検索中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
   } else if (state === "error") {
     avatar.classList.add("char-idle");
-    setStandFrame(standSprite, 4, 1); // 困り顔
+    setStandFrame(standSprite, 4, 1);
     badge.textContent = "⚠️ エラー";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-700";
   } else {
@@ -208,20 +262,25 @@ $("saveSettingsBtn").onclick = () => {
   syncHandsFree($("modalHandsFree").checked);
   updateSettingsSummary();
   closeSettingsModal();
-  setCharacterState("idle", "設定を更新したよ！いつでも話しかけてね！");
+  setCharacterState("idle", "設定を更新したよ〜！いつでも話しかけてねっ！");
 };
 
 resolveStandImage();
 updateSettingsSummary();
-setCharacterState("idle", "こんにちは！行きたい場所を話しかけてね！");
+setCharacterState("idle", "こんにちは〜！行きたい場所を話しかけてねっ！");
 
 function sayShortPhrase(phrase, continueListeningAfter = false) {
   if (!("speechSynthesis" in window) || !phrase) return;
   speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(phrase);
+
+  const utterance = new SpeechSynthesisUtterance(prettifySpeechText(phrase));
+  const cuteVoice = pickCuteJapaneseVoice();
+  if (cuteVoice) utterance.voice = cuteVoice;
+
   utterance.lang = "ja-JP";
-  utterance.rate = 1.08;
-  utterance.pitch = 1.25;
+  utterance.rate = 1.14;
+  utterance.pitch = 1.52;
+  utterance.volume = 1.0;
 
   utterance.onstart = () => {
     isSpeaking = true;
@@ -357,7 +416,7 @@ function setListening(active) {
   $("voiceSearchBtn").textContent = active ? "⏹️ 聞き取りを止める" : "🎙️ ボタンを押して話しかける";
 
   if (active) {
-    setCharacterState("listening", "うんうん、どこに行きたいか教えて！");
+    setCharacterState("listening", "うんうんっ、どこに行きたいか教えてね〜！");
     $("voiceBox").classList.remove("hidden");
     $("voiceStatus").textContent = "🎙️ 話しかけてください...";
     $("voiceText").textContent = "";
@@ -399,14 +458,14 @@ function startVoice() {
   recognition.onerror = () => {
     setListening(false);
     $("voiceStatus").textContent = "聞き取れませんでした。もう一度話しかけてください。";
-    setCharacterState("error", "うまく聞き取れなかったよ。もう一回話しかけてね！");
+    setCharacterState("error", "うまく聞き取れなかったよ〜。もう一回話しかけてねっ！");
   };
   recognition.onend = async () => {
     setListening(false);
     const spoken = (finalStr || $("voiceText").textContent).trim();
     if (!spoken) return;
     $("voiceStatus").textContent = "ナビロボがルートを調べているよ...";
-    setCharacterState("thinking", `「${spoken}」だね！ちょっと待っててね！`);
+    setCharacterState("thinking", `「${spoken}」だねっ！ちょっと待っててね〜！`);
     const p = parseVoice(spoken);
     if (p.to) $("destination").value = p.to;
     if (p.useGps) await fetchGpsOrigin();
@@ -431,7 +490,7 @@ function renderAgentReply(origin, destination, preference, shouldAutoSpeak) {
   $("userQueryBubble").textContent = note ? `「${note}」` : `${origin} から ${destination} まで（${prefText}）`;
 
   if (!best) {
-    const msg = "ごめんね、その条件に合うルートが見つからなかったよ。別の場所を教えてね！";
+    const msg = "ごめんね、その条件に合うルートが見つからなかったよ〜。別の場所を教えてねっ！";
     $("aiReplyLead").textContent = msg;
     $("aiReplyHighlights").innerHTML = "";
     speechScript = msg;
@@ -442,7 +501,7 @@ function renderAgentReply(origin, destination, preference, shouldAutoSpeak) {
 
   const leadMsg = `${origin}から${destination}までは、ルート${best.routeId}（約${best.durationMinutes}分・${best.fareYen}円）が${prefText}よ！`;
   $("aiReplyLead").textContent = leadMsg;
-  setCharacterState("idle", `見つかったよ！約${best.durationMinutes}分・${best.fareYen}円で行けるよ！`);
+  setCharacterState("idle", `見つけたよ〜！約${best.durationMinutes}分・${best.fareYen}円で行けるよっ！`);
 
   $("aiReplyHighlights").innerHTML = best.legs
     .map((leg, idx) => {
@@ -530,7 +589,7 @@ $("searchForm").onsubmit = async (e) => {
   const { includeFlight, preference } = searchSettings;
   const userNote = $("userNote").value.trim();
 
-  setCharacterState("thinking", `${origin}から${destination}までのルートを調べているよ！`);
+  setCharacterState("thinking", `${origin}から${destination}までのルートを調べてみるね〜！`);
   $("emptyState").classList.add("hidden");
   $("errorState").classList.add("hidden");
   $("resultContainer").classList.add("hidden");
@@ -560,9 +619,9 @@ $("searchForm").onsubmit = async (e) => {
     $("loadingState").classList.add("hidden");
     $("errorState").textContent = "エラー: " + err.message;
     $("errorState").classList.remove("hidden");
-    setCharacterState("error", "ごめんね、検索でエラーが起きちゃった。もう一回試してみて！");
+    setCharacterState("error", "ごめんね、検索でエラーが起きちゃった〜。もう一回試してみてね！");
     if (handsFreeEnabled && currentMode === "voice") {
-      sayShortPhrase("ごめんね、エラーが起きちゃった。もう一回話しかけてね！", true);
+      sayShortPhrase("ごめんね、エラーが起きちゃった〜。もう一回話しかけてね！", true);
     }
   } finally {
     $("submitBtn").disabled = false;
