@@ -71,13 +71,3 @@ body {
   border-color: #4f46e5 !important;
   animation: charTalk 0.55s ease-in-out infinite;
 }
-
-.mobile-bottom-bar {
-  padding-bottom: calc(0.65rem + env(safe-area-inset-bottom));
-}
-
-@media (max-width: 1023px) {
-  main {
-    padding-bottom: calc(6rem + env(safe-area-inset-bottom));
-  }
-}

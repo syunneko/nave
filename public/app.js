@@ -10,6 +10,7 @@ let autoSpeak = false;
 let handsFreeEnabled = false;
 let recognition = null;
 let isListening = false;
+let currentMode = "voice"; // "voice" | "input"
 
 let searchSettings = {
   includeFlight: true,
@@ -23,6 +24,31 @@ const MODE_BADGE = {
   walk: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>',
 };
 
+// 音声モード画面 / 文字入力モード画面 の切り替え
+function switchScreen(mode) {
+  currentMode = mode;
+  const isVoice = mode === "voice";
+
+  $("voiceScreen").classList.toggle("hidden", !isVoice);
+  $("inputScreen").classList.toggle("hidden", isVoice);
+
+  $("tabVoiceBtn").className = isVoice
+    ? "py-2 rounded-xl text-xs sm:text-sm font-extrabold bg-white text-indigo-700 shadow-xs transition"
+    : "py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition";
+
+  $("tabInputBtn").className = !isVoice
+    ? "py-2 rounded-xl text-xs sm:text-sm font-extrabold bg-white text-sky-700 shadow-xs transition"
+    : "py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition";
+
+  if (!isVoice && isListening && recognition) {
+    syncHandsFree(false);
+    recognition.stop();
+  }
+}
+
+$("tabVoiceBtn").onclick = () => switchScreen("voice");
+$("tabInputBtn").onclick = () => switchScreen("input");
+
 // キャラクターの見た目・状態バッジ・吹き出しを更新
 function setCharacterState(state, bubbleText) {
   const avatar = $("avatarWrap");
@@ -35,21 +61,21 @@ function setCharacterState(state, bubbleText) {
   if (state === "listening") {
     avatar.classList.add("char-listening");
     badge.textContent = "👂 聞き取り中";
-    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700";
+    badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
   } else if (state === "speaking") {
     avatar.classList.add("char-speaking");
     if (replyAvatar) replyAvatar.classList.add("char-speaking");
     badge.textContent = "💬 お話し中";
-    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700";
+    badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700";
   } else if (state === "thinking") {
     avatar.classList.add("char-idle");
     badge.textContent = "🔍 検索中";
-    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800";
+    badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
   } else {
     avatar.classList.add("char-idle");
     if (replyAvatar) replyAvatar.classList.add("char-idle");
     badge.textContent = "待機中";
-    badge.className = "text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700";
+    badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-sky-100 text-sky-700";
   }
 
   if (bubbleText) {
@@ -60,7 +86,9 @@ function setCharacterState(state, bubbleText) {
 function updateSettingsSummary() {
   const flightLabel = searchSettings.includeFlight ? "✈️ 使う" : "🚫 使わない";
   const prefLabel = searchSettings.preference === "shortest" ? "⚡ 一番早い" : "💴 一番安い";
-  $("settingsSummary").textContent = `${flightLabel} ／ ${prefLabel}`;
+  const text = `${flightLabel} ／ ${prefLabel}`;
+  $("settingsSummaryVoice").textContent = text;
+  $("settingsSummaryInput").textContent = text;
 }
 
 function syncHandsFree(enabled) {
@@ -104,17 +132,17 @@ function sayShortPhrase(phrase, continueListeningAfter = false) {
   const utterance = new SpeechSynthesisUtterance(phrase);
   utterance.lang = "ja-JP";
   utterance.rate = 1.08;
-  utterance.pitch = 1.25; // 可愛いロボットらしい少し高めの声
+  utterance.pitch = 1.25;
 
   utterance.onstart = () => {
     isSpeaking = true;
-    $("speakBtn").textContent = "⏹️ 停止する";
+    $("speakBtn").textContent = "⏹️ 停止";
     $("speakingIndicator").classList.replace("hidden", "flex");
     setCharacterState("speaking");
   };
   utterance.onend = utterance.onerror = () => {
     stopSpeech();
-    if (continueListeningAfter && handsFreeEnabled) {
+    if (continueListeningAfter && handsFreeEnabled && currentMode === "voice") {
       setTimeout(() => startVoice(), 350);
     }
   };
@@ -124,7 +152,7 @@ function sayShortPhrase(phrase, continueListeningAfter = false) {
 function stopSpeech() {
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   isSpeaking = false;
-  $("speakBtn").textContent = "🔊 音声で聞く";
+  $("speakBtn").textContent = "🔊 読み上げ";
   $("speakingIndicator").classList.replace("flex", "hidden");
   if (!isListening) setCharacterState("idle");
 }
@@ -237,9 +265,7 @@ function parseVoice(text) {
 function setListening(active) {
   isListening = active;
   $("voiceSearchBtn").classList.toggle("mic-listening", active);
-  $("mobileVoiceBtn").classList.toggle("mic-listening", active);
-  $("voiceSearchBtn").textContent = active ? "⏹️ 聞き取り中" : "🎙️ 話しかける";
-  $("mobileVoiceBtn").textContent = active ? "⏹️ 停止" : "🎙️ 話す";
+  $("voiceSearchBtn").textContent = active ? "⏹️ 聞き取りを止める" : "🎙️ ボタンを押して話しかける";
 
   if (active) {
     setCharacterState("listening", "うんうん、どこに行きたいか教えて！");
@@ -306,8 +332,7 @@ function startVoice() {
   recognition.start();
 }
 
-$("voiceSearchBtn").onclick = $("mobileVoiceBtn").onclick = startVoice;
-$("mobileSubmitBtn").onclick = () => $("searchForm").requestSubmit();
+$("voiceSearchBtn").onclick = startVoice;
 
 function renderAgentReply(origin, destination, preference, shouldAutoSpeak) {
   const best = candidates.find((c) => c.routeId === bestId) || candidates[0];
@@ -351,8 +376,8 @@ function renderAgentReply(origin, destination, preference, shouldAutoSpeak) {
     .join("。次は");
   speechScript = `${origin}から${destination}までは、ルート${best.routeId}、約${best.durationMinutes}分、${best.fareYen}円が${prefText}よ！${steps}で向かうよ！`;
 
-  if (shouldAutoSpeak || handsFreeEnabled) {
-    sayShortPhrase(speechScript, handsFreeEnabled);
+  if (shouldAutoSpeak || (handsFreeEnabled && currentMode === "voice")) {
+    sayShortPhrase(speechScript, handsFreeEnabled && currentMode === "voice");
   }
 }
 
@@ -381,7 +406,7 @@ function renderCards() {
         .join("");
 
       return `
-        <div onclick="selectRoute('${r.routeId}')" class="cursor-pointer rounded-2xl sm:rounded-3xl p-4 sm:p-5 bg-white border-2 transition ${isSel ? "border-sky-500 shadow-md" : "border-slate-200 hover:border-slate-300 shadow-sm"}">
+        <div onclick="selectRoute('${r.routeId}')" class="cursor-pointer rounded-3xl p-4 sm:p-5 bg-white border-2 transition ${isSel ? "border-sky-500 shadow-md" : "border-slate-200 hover:border-slate-300 shadow-sm"}">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3 pb-2.5 border-b border-slate-100">
             <div class="flex flex-wrap items-center gap-2">
               <span class="w-7 h-7 rounded-xl text-xs font-extrabold flex items-center justify-center ${isBest ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-700"}">${r.routeId}</span>
@@ -421,7 +446,7 @@ $("searchForm").onsubmit = async (e) => {
   $("errorState").classList.add("hidden");
   $("resultContainer").classList.add("hidden");
   $("loadingState").classList.remove("hidden");
-  $("submitBtn").disabled = $("mobileSubmitBtn").disabled = true;
+  $("submitBtn").disabled = true;
 
   try {
     const res = await fetch("/api/search", {
@@ -447,10 +472,10 @@ $("searchForm").onsubmit = async (e) => {
     $("errorState").textContent = "エラー: " + err.message;
     $("errorState").classList.remove("hidden");
     setCharacterState("idle", "ごめんね、検索でエラーが起きちゃった。もう一回試してみて！");
-    if (handsFreeEnabled) {
+    if (handsFreeEnabled && currentMode === "voice") {
       sayShortPhrase("ごめんね、エラーが起きちゃった。もう一回話しかけてね！", true);
     }
   } finally {
-    $("submitBtn").disabled = $("mobileSubmitBtn").disabled = false;
+    $("submitBtn").disabled = false;
   }
 };
