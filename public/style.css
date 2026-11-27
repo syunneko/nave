@@ -42,7 +42,7 @@ body {
     transform: translateY(0px);
   }
   50% {
-    transform: translateY(-5px);
+    transform: translateY(-7px);
   }
 }
 
@@ -70,7 +70,7 @@ body {
 }
 
 .char-idle {
-  animation: charFloat 3s ease-in-out infinite;
+  animation: charFloat 2.4s ease-in-out infinite;
 }
 
 .char-listening {
@@ -81,34 +81,10 @@ body {
   animation: charTalk 0.55s ease-in-out infinite;
 }
 
-/* 画面左端の外から定位置までかなりゆっくり移動する登場演出（8列×4行） */
-#walkStage {
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 35;
-  pointer-events: none;
-  transform: translate3d(var(--walk-start-x, -180px), var(--walk-y, 160px), 0);
-  transition: transform 6.0s cubic-bezier(0.25, 0.9, 0.3, 1);
-}
-
-#walkStage.is-walking {
-  transform: translate3d(var(--walk-end-x, 120px), var(--walk-y, 160px), 0);
-}
-
-.walk-sprite {
-  width: 140px;
-  height: 160px;
-  background-image: url("./DEMO-move.png");
-  background-size: 800% 400%;
-  background-position: 0% 0%;
-  background-repeat: no-repeat;
-}
-
 /* 待機・表情スプライト（5列×4行） */
 .stand-sprite {
-  width: 124px;
-  height: 124px;
+  width: 128px;
+  height: 128px;
   background-image: url("./DEMO-stand.png");
   background-size: 500% 400%;
   background-position: 0% 0%;

@@ -11,9 +11,7 @@ let handsFreeEnabled = false;
 let recognition = null;
 let isListening = false;
 let currentMode = "voice"; // "voice" | "input"
-let walkFrameTimer = null;
-let walkFinishTimer = null;
-let walkRafId = null;
+let idleExprTimer = null;
 let talkExprTimer = null;
 
 let searchSettings = {
@@ -36,109 +34,28 @@ function setStandFrame(el, col, row) {
   el.style.backgroundPosition = `${xPct}% ${yPct}%`;
 }
 
-function stopWalkEntrance() {
-  clearInterval(walkFrameTimer);
-  clearTimeout(walkFinishTimer);
-  cancelAnimationFrame(walkRafId);
-  walkFrameTimer = null;
-  walkFinishTimer = null;
-}
-
-function stopTalkExprLoop() {
+function stopExprLoops() {
+  clearInterval(idleExprTimer);
   clearInterval(talkExprTimer);
+  idleExprTimer = null;
   talkExprTimer = null;
 }
 
-// 画面左端の外から定位置まで移動スプライト（8x4=32コマ）でゆっくり登場し、待機スプライトへ切り替え
-function playWalkEntrance() {
-  stopWalkEntrance();
-
-  const walkStage = $("walkStage");
-  const walkSprite = $("walkSprite");
-  const avatarWrap = $("avatarWrap");
+// 待機中の表情・まばたきアニメーションを開始
+function startIdleAnimation() {
+  stopExprLoops();
   const standSprite = $("standSprite");
-  const badge = $("charStateBadge");
+  const replySprite = $("replyStandSprite");
+  setStandFrame(standSprite, 0, 0);
+  setStandFrame(replySprite, 0, 0);
 
-  if (currentMode !== "voice") {
-    avatarWrap.classList.remove("hidden");
-    return;
-  }
-
-  const probe = new Image();
-  probe.onerror = () => {
-    walkStage.classList.add("hidden");
-    avatarWrap.classList.remove("hidden");
-    setStandFrame(standSprite, 0, 0);
-    setCharacterState("idle", "DEMO-move.png が見つからなかったよ！public フォルダを確認してね。");
-  };
-  probe.src = "./DEMO-move.png";
-
-  const rect = avatarWrap.getBoundingClientRect();
-  const spriteW = 140;
-  const spriteH = 160;
-  const fallbackX = Math.max(24, Math.round(window.innerWidth * 0.2 - spriteW / 2));
-  const fallbackY = Math.max(120, Math.round(window.innerHeight * 0.35 - spriteH / 2));
-
-  const endX = rect.width > 0 ? Math.round(rect.left + rect.width / 2 - spriteW / 2) : fallbackX;
-  const posY = rect.height > 0 ? Math.round(rect.top + rect.height / 2 - spriteH / 2) : fallbackY;
-  const startX = -spriteW - 36;
-
-  avatarWrap.classList.add("hidden");
-  walkStage.classList.remove("hidden", "is-walking");
-  walkStage.style.transition = "none";
-  walkStage.style.setProperty("--walk-start-x", `${startX}px`);
-  walkStage.style.setProperty("--walk-end-x", `${endX}px`);
-  walkStage.style.setProperty("--walk-y", `${posY}px`);
-
-  // 8列 x 4行（32コマ）をゆっくり順番再生
-  const cols = 8;
-  const rows = 4;
-  const totalFrames = cols * rows;
-  let frameIndex = 0;
-
-  const applyFrame = (idx) => {
-    const f = idx % totalFrames;
-    const col = f % cols;
-    const row = Math.floor(f / cols);
-    const xPct = (col / (cols - 1)) * 100;
-    const yPct = (row / (rows - 1)) * 100;
-    walkSprite.style.backgroundPosition = `${xPct}% ${yPct}%`;
-  };
-
-  applyFrame(0);
-  badge.textContent = "👣 登場中";
-  badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
-  $("charBubble").textContent = "ぴょんぴょん…左からゆっくり向かっているよ！";
-
-  walkFrameTimer = setInterval(() => {
-    frameIndex += 1;
-    applyFrame(frameIndex);
-  }, 190);
-
-  walkRafId = requestAnimationFrame(() => {
-    walkRafId = requestAnimationFrame(() => {
-      walkStage.style.transition = "transform 6.0s cubic-bezier(0.25, 0.9, 0.3, 1)";
-      walkStage.classList.add("is-walking");
-    });
-  });
-
-  walkFinishTimer = setTimeout(() => {
-    stopWalkEntrance();
-    walkStage.classList.add("hidden");
-    walkStage.classList.remove("is-walking");
-    avatarWrap.classList.remove("hidden");
-    setStandFrame(standSprite, 0, 0);
-    if (!isListening && !isSpeaking) {
-      setCharacterState("idle", "到着したよ！行きたい場所を話しかけてね！");
-    }
-  }, 6050);
+  let blink = false;
+  idleExprTimer = setInterval(() => {
+    blink = !blink;
+    setStandFrame(standSprite, blink ? 1 : 0, 0);
+    setStandFrame(replySprite, blink ? 1 : 0, 0);
+  }, 1100);
 }
-
-$("avatarWrap").onclick = () => {
-  if (!isListening && !isSpeaking) {
-    playWalkEntrance();
-  }
-};
 
 // 音声モード画面 / 文字入力モード画面 の切り替え
 function switchScreen(mode) {
@@ -156,15 +73,9 @@ function switchScreen(mode) {
     ? "py-2 rounded-xl text-xs sm:text-sm font-extrabold bg-white text-sky-700 shadow-xs transition"
     : "py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition";
 
-  if (!isVoice) {
-    stopWalkEntrance();
-    $("walkStage").classList.add("hidden");
-    $("avatarWrap").classList.remove("hidden");
-
-    if (isListening && recognition) {
-      syncHandsFree(false);
-      recognition.stop();
-    }
+  if (!isVoice && isListening && recognition) {
+    syncHandsFree(false);
+    recognition.stop();
   }
 }
 
@@ -179,7 +90,7 @@ function setCharacterState(state, bubbleText) {
   const replySprite = $("replyStandSprite");
   const badge = $("charStateBadge");
 
-  stopTalkExprLoop();
+  stopExprLoops();
   avatar.classList.remove("char-idle", "char-listening", "char-speaking");
   if (replyAvatar) replyAvatar.classList.remove("char-idle", "char-listening", "char-speaking");
 
@@ -214,8 +125,7 @@ function setCharacterState(state, bubbleText) {
   } else {
     avatar.classList.add("char-idle");
     if (replyAvatar) replyAvatar.classList.add("char-idle");
-    setStandFrame(standSprite, 0, 0);
-    setStandFrame(replySprite, 0, 0);
+    startIdleAnimation();
     badge.textContent = "待機中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-sky-100 text-sky-700";
   }
@@ -267,7 +177,7 @@ $("saveSettingsBtn").onclick = () => {
 };
 
 updateSettingsSummary();
-playWalkEntrance();
+setCharacterState("idle", "こんにちは！行きたい場所を話しかけてね！");
 
 function sayShortPhrase(phrase, continueListeningAfter = false) {
   if (!("speechSynthesis" in window) || !phrase) return;
@@ -407,11 +317,6 @@ function parseVoice(text) {
 
 function setListening(active) {
   isListening = active;
-  if (active) {
-    stopWalkEntrance();
-    $("walkStage").classList.add("hidden");
-    $("avatarWrap").classList.remove("hidden");
-  }
   $("voiceSearchBtn").classList.toggle("mic-listening", active);
   $("voiceSearchBtn").textContent = active ? "⏹️ 聞き取りを止める" : "🎙️ ボタンを押して話しかける";
 
