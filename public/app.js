@@ -13,6 +13,7 @@ let isListening = false;
 let currentMode = "voice"; // "voice" | "input"
 let walkRowTimer = null;
 let walkFinishTimer = null;
+let walkRafId = null;
 
 let searchSettings = {
   includeFlight: true,
@@ -26,42 +27,67 @@ const MODE_BADGE = {
   walk: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>',
 };
 
-// 最初の登場シーン：スプライトシート(4x3)で歩いて登場し、立ち絵へ切り替え
+// 画面左端の外から定位置までゆっくり歩いて登場し、立ち絵へ切り替え
 function playWalkEntrance() {
   clearTimeout(walkRowTimer);
   clearTimeout(walkFinishTimer);
+  cancelAnimationFrame(walkRafId);
 
   const walkStage = $("walkStage");
   const walkSprite = $("walkSprite");
   const avatarWrap = $("avatarWrap");
   const badge = $("charStateBadge");
 
-  avatarWrap.classList.add("hidden");
-  walkStage.classList.remove("hidden", "walk-stage-enter");
-  void walkStage.offsetWidth;
-  walkStage.classList.add("walk-stage-enter");
+  if (currentMode !== "voice") {
+    avatarWrap.classList.remove("hidden");
+    return;
+  }
 
-  // 3行（0%, 50%, 100%）を順に切り替え
+  // 定位置の中心座標を取得してスプライト(128x128)の左上に変換
+  const rect = avatarWrap.getBoundingClientRect();
+  const spriteSize = 128;
+  const centerX = rect.left + rect.width / 2;
+  const centerY = rect.top + rect.height / 2;
+  const endX = Math.round(centerX - spriteSize / 2);
+  const posY = Math.round(centerY - spriteSize / 2);
+  const startX = -spriteSize - 32;
+
+  avatarWrap.classList.add("hidden");
+  walkStage.classList.remove("hidden", "is-walking");
+  walkStage.style.transition = "none";
+  walkStage.style.setProperty("--walk-start-x", `${startX}px`);
+  walkStage.style.setProperty("--walk-end-x", `${endX}px`);
+  walkStage.style.setProperty("--walk-y", `${posY}px`);
+
   walkSprite.style.backgroundPositionY = "0%";
   badge.textContent = "👣 登場中";
   badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
-  $("charBubble").textContent = "てくてく…やってきたよ！行きたい場所を話しかけてね！";
+  $("charBubble").textContent = "てくてく…左から歩いて向かっているよ！";
 
+  walkRafId = requestAnimationFrame(() => {
+    walkRafId = requestAnimationFrame(() => {
+      walkStage.style.transition = "transform 3.2s cubic-bezier(0.25, 0.9, 0.3, 1)";
+      walkStage.classList.add("is-walking");
+    });
+  });
+
+  // ゆっくり3行分を順番にコマ送り
   walkRowTimer = setTimeout(() => {
     walkSprite.style.backgroundPositionY = "50%";
     walkRowTimer = setTimeout(() => {
       walkSprite.style.backgroundPositionY = "100%";
-    }, 520);
-  }, 520);
+    }, 1050);
+  }, 1050);
 
+  // 定位置到着後に立ち絵（DEMO.png）へ切り替え
   walkFinishTimer = setTimeout(() => {
     walkStage.classList.add("hidden");
-    walkStage.classList.remove("walk-stage-enter");
+    walkStage.classList.remove("is-walking");
     avatarWrap.classList.remove("hidden");
     if (!isListening && !isSpeaking) {
-      setCharacterState("idle", "こんにちは！行きたい場所を話しかけてね！");
+      setCharacterState("idle", "到着したよ！行きたい場所を話しかけてね！");
     }
-  }, 1600);
+  }, 3250);
 }
 
 $("avatarWrap").onclick = () => {
@@ -86,9 +112,17 @@ function switchScreen(mode) {
     ? "py-2 rounded-xl text-xs sm:text-sm font-extrabold bg-white text-sky-700 shadow-xs transition"
     : "py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition";
 
-  if (!isVoice && isListening && recognition) {
-    syncHandsFree(false);
-    recognition.stop();
+  if (!isVoice) {
+    clearTimeout(walkRowTimer);
+    clearTimeout(walkFinishTimer);
+    cancelAnimationFrame(walkRafId);
+    $("walkStage").classList.add("hidden");
+    $("avatarWrap").classList.remove("hidden");
+
+    if (isListening && recognition) {
+      syncHandsFree(false);
+      recognition.stop();
+    }
   }
 }
 
@@ -312,6 +346,9 @@ function parseVoice(text) {
 function setListening(active) {
   isListening = active;
   if (active) {
+    clearTimeout(walkRowTimer);
+    clearTimeout(walkFinishTimer);
+    cancelAnimationFrame(walkRafId);
     $("walkStage").classList.add("hidden");
     $("avatarWrap").classList.remove("hidden");
   }

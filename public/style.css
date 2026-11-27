@@ -81,23 +81,19 @@ body {
   animation: charTalk 0.55s ease-in-out infinite;
 }
 
-/* スプライトシート（4列×3行）で歩きながら登場 */
-.walk-stage-enter {
-  animation: walkSlideIn 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+/* 画面左端の外から定位置までゆっくり歩く登場演出 */
+#walkStage {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 35;
+  pointer-events: none;
+  transform: translate3d(var(--walk-start-x, -160px), var(--walk-y, 160px), 0);
+  transition: transform 3.2s cubic-bezier(0.25, 0.9, 0.3, 1);
 }
 
-@keyframes walkSlideIn {
-  0% {
-    transform: translateX(-130%);
-    opacity: 0.2;
-  }
-  15% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(0%);
-    opacity: 1;
-  }
+#walkStage.is-walking {
+  transform: translate3d(var(--walk-end-x, 120px), var(--walk-y, 160px), 0);
 }
 
 .walk-sprite {
@@ -108,7 +104,7 @@ body {
   background-position: 0% 0%;
   background-repeat: no-repeat;
   mix-blend-mode: screen;
-  animation: walkCols 0.32s steps(4) infinite;
+  animation: walkCols 0.55s steps(4) infinite;
 }
 
 @keyframes walkCols {
