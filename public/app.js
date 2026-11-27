@@ -80,26 +80,32 @@ function prettifySpeechText(rawText) {
     .trim();
 }
 
-// DEMO-stand.jpg / DEMO-stand.png の存在を確認して CSS 変数を設定
-function resolveStandImage() {
-  const jpgProbe = new Image();
-  jpgProbe.onload = () => {
-    document.documentElement.style.setProperty("--stand-url", 'url("./DEMO-stand.jpg")');
-  };
-  jpgProbe.onerror = () => {
-    const pngProbe = new Image();
-    pngProbe.onload = () => {
-      document.documentElement.style.setProperty("--stand-url", 'url("./DEMO-stand.png")');
+// スプライトシート画像のパス解決（4列×4行）
+function resolveCharSpriteImage() {
+  const candidatesSrc = [
+    "./DEMO-stand.jpeg",
+    "./DEMO-stand.jpg",
+    "./DEMO-stand.png",
+  ];
+
+  const tryNext = (index) => {
+    if (index >= candidatesSrc.length) return;
+    const src = candidatesSrc[index];
+    const probe = new Image();
+    probe.onload = () => {
+      document.documentElement.style.setProperty("--char-sprite-url", `url("${src}")`);
     };
-    pngProbe.src = "./DEMO-stand.png";
+    probe.onerror = () => tryNext(index + 1);
+    probe.src = src;
   };
-  jpgProbe.src = "./DEMO-stand.jpg";
+
+  tryNext(0);
 }
 
-// 5列 x 4行のスプライトシートの指定コマ（col: 0..4, row: 0..3）を適用
+// 4列 x 4行のスプライトシートの指定コマ（col: 0..3, row: 0..3）を適用
 function setStandFrame(el, col, row) {
   if (!el) return;
-  const xPct = (col / 4) * 100;
+  const xPct = (col / 3) * 100;
   const yPct = (row / 3) * 100;
   el.style.backgroundPosition = `${xPct}% ${yPct}%`;
 }
@@ -111,7 +117,7 @@ function stopExprLoops() {
   talkExprTimer = null;
 }
 
-// 待機中の表情アニメーション（にっこり → ぱっちり笑顔 → ウインク → ワクワク）
+// 待機中のコマ送りアニメーション（立ち → 少し動き → 手を挙げる → ニコッと挨拶）
 function startIdleAnimation() {
   stopExprLoops();
   const standSprite = $("standSprite");
@@ -119,8 +125,8 @@ function startIdleAnimation() {
   const frames = [
     [0, 0],
     [1, 0],
-    [2, 0],
-    [1, 0],
+    [3, 0],
+    [0, 1],
   ];
   let idx = 0;
 
@@ -134,7 +140,7 @@ function startIdleAnimation() {
   idleExprTimer = setInterval(() => {
     idx += 1;
     applyCurrent();
-  }, 850);
+  }, 900);
 }
 
 // 音声モード画面 / 文字入力モード画面 の切り替え
@@ -162,7 +168,7 @@ function switchScreen(mode) {
 $("tabVoiceBtn").onclick = () => switchScreen("voice");
 $("tabInputBtn").onclick = () => switchScreen("input");
 
-// キャラクターの表情・アニメーション・状態バッジ・吹き出しを更新
+// キャラクターのポーズ・アニメーション・状態バッジ・吹き出しを更新
 function setCharacterState(state, bubbleText) {
   const avatar = $("avatarWrap");
   const standSprite = $("standSprite");
@@ -176,17 +182,30 @@ function setCharacterState(state, bubbleText) {
 
   if (state === "listening") {
     avatar.classList.add("char-listening");
-    setStandFrame(standSprite, 1, 3);
+    const listenFrames = [
+      [2, 1],
+      [3, 1],
+    ];
+    let idx = 0;
+    const applyListen = () => {
+      const [col, row] = listenFrames[idx % listenFrames.length];
+      setStandFrame(standSprite, col, row);
+    };
+    applyListen();
+    talkExprTimer = setInterval(() => {
+      idx += 1;
+      applyListen();
+    }, 450);
     badge.textContent = "👂 聞き取り中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
   } else if (state === "speaking") {
     avatar.classList.add("char-speaking");
     if (replyAvatar) replyAvatar.classList.add("char-speaking");
     const talkFrames = [
-      [1, 0],
-      [4, 0],
-      [2, 0],
       [0, 1],
+      [1, 1],
+      [2, 1],
+      [2, 3],
     ];
     let idx = 0;
     const applyTalk = () => {
@@ -203,12 +222,12 @@ function setCharacterState(state, bubbleText) {
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700";
   } else if (state === "thinking") {
     avatar.classList.add("char-idle");
-    setStandFrame(standSprite, 0, 1);
+    setStandFrame(standSprite, 2, 2);
     badge.textContent = "🔍 検索中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
   } else if (state === "error") {
     avatar.classList.add("char-idle");
-    setStandFrame(standSprite, 4, 1);
+    setStandFrame(standSprite, 0, 2);
     badge.textContent = "⚠️ エラー";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-700";
   } else {
@@ -265,7 +284,7 @@ $("saveSettingsBtn").onclick = () => {
   setCharacterState("idle", "設定を更新したよ〜！いつでも話しかけてねっ！");
 };
 
-resolveStandImage();
+resolveCharSpriteImage();
 updateSettingsSummary();
 setCharacterState("idle", "こんにちは〜！行きたい場所を話しかけてねっ！");
 
