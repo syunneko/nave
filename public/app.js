@@ -49,7 +49,7 @@ function stopTalkExprLoop() {
   talkExprTimer = null;
 }
 
-// 画面左端の外から定位置まで移動スプライト（8x4=32コマ）で登場し、待機スプライトへ切り替え
+// 画面左端の外から定位置まで移動スプライト（8x4=32コマ）でゆっくり登場し、待機スプライトへ切り替え
 function playWalkEntrance() {
   stopWalkEntrance();
 
@@ -74,13 +74,14 @@ function playWalkEntrance() {
   probe.src = "./DEMO-move.png";
 
   const rect = avatarWrap.getBoundingClientRect();
-  const spriteSize = 120;
-  const fallbackX = Math.max(24, Math.round(window.innerWidth * 0.2 - spriteSize / 2));
-  const fallbackY = Math.max(120, Math.round(window.innerHeight * 0.35 - spriteSize / 2));
+  const spriteW = 140;
+  const spriteH = 160;
+  const fallbackX = Math.max(24, Math.round(window.innerWidth * 0.2 - spriteW / 2));
+  const fallbackY = Math.max(120, Math.round(window.innerHeight * 0.35 - spriteH / 2));
 
-  const endX = rect.width > 0 ? Math.round(rect.left + rect.width / 2 - spriteSize / 2) : fallbackX;
-  const posY = rect.height > 0 ? Math.round(rect.top + rect.height / 2 - spriteSize / 2) : fallbackY;
-  const startX = -spriteSize - 32;
+  const endX = rect.width > 0 ? Math.round(rect.left + rect.width / 2 - spriteW / 2) : fallbackX;
+  const posY = rect.height > 0 ? Math.round(rect.top + rect.height / 2 - spriteH / 2) : fallbackY;
+  const startX = -spriteW - 36;
 
   avatarWrap.classList.add("hidden");
   walkStage.classList.remove("hidden", "is-walking");
@@ -107,16 +108,16 @@ function playWalkEntrance() {
   applyFrame(0);
   badge.textContent = "👣 登場中";
   badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
-  $("charBubble").textContent = "ぴょんぴょん…左から歩いて向かっているよ！";
+  $("charBubble").textContent = "ぴょんぴょん…左からゆっくり向かっているよ！";
 
   walkFrameTimer = setInterval(() => {
     frameIndex += 1;
     applyFrame(frameIndex);
-  }, 105);
+  }, 190);
 
   walkRafId = requestAnimationFrame(() => {
     walkRafId = requestAnimationFrame(() => {
-      walkStage.style.transition = "transform 3.4s cubic-bezier(0.25, 0.9, 0.3, 1)";
+      walkStage.style.transition = "transform 6.0s cubic-bezier(0.25, 0.9, 0.3, 1)";
       walkStage.classList.add("is-walking");
     });
   });
@@ -130,7 +131,7 @@ function playWalkEntrance() {
     if (!isListening && !isSpeaking) {
       setCharacterState("idle", "到着したよ！行きたい場所を話しかけてね！");
     }
-  }, 3450);
+  }, 6050);
 }
 
 $("avatarWrap").onclick = () => {
@@ -184,7 +185,7 @@ function setCharacterState(state, bubbleText) {
 
   if (state === "listening") {
     avatar.classList.add("char-listening");
-    setStandFrame(standSprite, 1, 3); // キラキラ笑顔
+    setStandFrame(standSprite, 1, 3);
     badge.textContent = "👂 聞き取り中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
   } else if (state === "speaking") {
@@ -202,12 +203,12 @@ function setCharacterState(state, bubbleText) {
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-700";
   } else if (state === "thinking") {
     avatar.classList.add("char-idle");
-    setStandFrame(standSprite, 0, 1); // ぱっちり
+    setStandFrame(standSprite, 0, 1);
     badge.textContent = "🔍 検索中";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-100 text-amber-800";
   } else if (state === "error") {
     avatar.classList.add("char-idle");
-    setStandFrame(standSprite, 4, 1); // 困り顔
+    setStandFrame(standSprite, 4, 1);
     badge.textContent = "⚠️ エラー";
     badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-700";
   } else {

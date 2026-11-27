@@ -81,15 +81,15 @@ body {
   animation: charTalk 0.55s ease-in-out infinite;
 }
 
-/* 画面左端の外から定位置までゆっくり移動する登場演出（8列×4行） */
+/* 画面左端の外から定位置までかなりゆっくり移動する登場演出（8列×4行） */
 #walkStage {
   position: fixed;
   left: 0;
   top: 0;
   z-index: 35;
   pointer-events: none;
-  transform: translate3d(var(--walk-start-x, -160px), var(--walk-y, 160px), 0);
-  transition: transform 3.4s cubic-bezier(0.25, 0.9, 0.3, 1);
+  transform: translate3d(var(--walk-start-x, -180px), var(--walk-y, 160px), 0);
+  transition: transform 6.0s cubic-bezier(0.25, 0.9, 0.3, 1);
 }
 
 #walkStage.is-walking {
@@ -97,8 +97,8 @@ body {
 }
 
 .walk-sprite {
-  width: 120px;
-  height: 120px;
+  width: 140px;
+  height: 160px;
   background-image: url("./DEMO-move.png");
   background-size: 800% 400%;
   background-position: 0% 0%;
