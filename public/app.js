@@ -7,10 +7,10 @@ let originCoords = null;
 let speechScript = "";
 let isSpeaking = false;
 let autoSpeak = false;
+let handsFreeEnabled = false;
 let recognition = null;
 let isListening = false;
 
-// 別画面（設定モーダル）で管理する状態
 let searchSettings = {
   includeFlight: true,
   preference: "shortest", // "shortest" | "cheapest"
@@ -29,9 +29,19 @@ function updateSettingsSummary() {
   $("settingsSummary").textContent = `${flightLabel} ／ ${prefLabel}`;
 }
 
+function syncHandsFree(enabled) {
+  handsFreeEnabled = Boolean(enabled);
+  $("handsFreeToggle").checked = handsFreeEnabled;
+  $("modalHandsFree").checked = handsFreeEnabled;
+}
+
+$("handsFreeToggle").onchange = (e) => syncHandsFree(e.target.checked);
+$("modalHandsFree").onchange = (e) => syncHandsFree(e.target.checked);
+
 function openSettingsModal() {
   document.querySelector(`input[name="modalFlightOption"][value="${searchSettings.includeFlight ? "yes" : "no"}"]`).checked = true;
   document.querySelector(`input[name="modalPreference"][value="${searchSettings.preference}"]`).checked = true;
+  $("modalHandsFree").checked = handsFreeEnabled;
   $("settingsModal").classList.remove("hidden");
 }
 
@@ -46,11 +56,32 @@ $("closeSettingsBtn").onclick = closeSettingsModal;
 $("saveSettingsBtn").onclick = () => {
   searchSettings.includeFlight = document.querySelector('input[name="modalFlightOption"]:checked').value === "yes";
   searchSettings.preference = document.querySelector('input[name="modalPreference"]:checked').value;
+  syncHandsFree($("modalHandsFree").checked);
   updateSettingsSummary();
   closeSettingsModal();
 };
 
 updateSettingsSummary();
+
+function sayShortPhrase(phrase, continueListeningAfter = false) {
+  if (!("speechSynthesis" in window) || !phrase) return;
+  speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(phrase);
+  utterance.lang = "ja-JP";
+  utterance.rate = 1.05;
+  utterance.onstart = () => {
+    isSpeaking = true;
+    $("speakBtn").textContent = "⏹️ 停止する";
+    $("speakingIndicator").classList.replace("hidden", "flex");
+  };
+  utterance.onend = utterance.onerror = () => {
+    stopSpeech();
+    if (continueListeningAfter && handsFreeEnabled) {
+      setTimeout(() => startVoice(), 350);
+    }
+  };
+  speechSynthesis.speak(utterance);
+}
 
 function stopSpeech() {
   if ("speechSynthesis" in window) speechSynthesis.cancel();
@@ -60,18 +91,8 @@ function stopSpeech() {
 }
 
 function speakGuide() {
-  if (!("speechSynthesis" in window) || !speechScript) return;
-  stopSpeech();
-  const utterance = new SpeechSynthesisUtterance(speechScript);
-  utterance.lang = "ja-JP";
-  utterance.rate = 1.05;
-  utterance.onstart = () => {
-    isSpeaking = true;
-    $("speakBtn").textContent = "⏹️ 停止する";
-    $("speakingIndicator").classList.replace("hidden", "flex");
-  };
-  utterance.onend = utterance.onerror = stopSpeech;
-  speechSynthesis.speak(utterance);
+  if (!speechScript) return;
+  sayShortPhrase(speechScript, handsFreeEnabled);
 }
 
 $("speakBtn").onclick = () => (isSpeaking ? stopSpeech() : speakGuide());
@@ -164,8 +185,8 @@ function parseVoice(text) {
     if (m2) to = m2[1].replace(/^(今いるところ|いまいるところ|現在地|ここ)\s*/, "").trim();
   }
 
-  if (/(安い|安く|最安|節約)/.test(s)) searchSettings.preference = "cheapest";
-  else if (/(最短|早い|早く|速い|速く)/.test(s)) searchSettings.preference = "shortest";
+  if (/(安い|安く|最安|節約|一番安い)/.test(s)) searchSettings.preference = "cheapest";
+  else if (/(最短|早い|早く|速い|速く|一番早い)/.test(s)) searchSettings.preference = "shortest";
 
   if (/(飛行機なし|飛行機を使わない|飛行機以外|新幹線|電車だけ|バスだけ)/.test(s)) searchSettings.includeFlight = false;
   else if (/(飛行機|空路)/.test(s)) searchSettings.includeFlight = true;
@@ -178,8 +199,8 @@ function setListening(active) {
   isListening = active;
   $("voiceSearchBtn").classList.toggle("mic-listening", active);
   $("mobileVoiceBtn").classList.toggle("mic-listening", active);
-  $("voiceSearchBtn").textContent = active ? "⏹️ 聞き取り中" : "🎙️ 話しかける";
-  $("mobileVoiceBtn").textContent = active ? "⏹️ 停止" : "🎙️ 音声";
+  $("voiceSearchBtn").textContent = active ? "⏹️ 聞き取り中" : "🎙️ 話す";
+  $("mobileVoiceBtn").textContent = active ? "⏹️ 停止" : "🎙️ 話す";
   if (active) {
     $("voiceBox").classList.remove("hidden");
     $("voiceStatus").textContent = "🎙️ 話しかけてください...";
@@ -195,7 +216,10 @@ function startVoice() {
     $("voiceText").textContent = "Chrome や Safari をご利用ください。";
     return;
   }
-  if (isListening && recognition) return recognition.stop();
+  if (isListening && recognition) {
+    syncHandsFree(false);
+    return recognition.stop();
+  }
   stopSpeech();
 
   recognition = new SR();
@@ -215,13 +239,13 @@ function startVoice() {
   };
   recognition.onerror = () => {
     setListening(false);
-    $("voiceStatus").textContent = "聞き取れませんでした。もう一度お試しください。";
+    $("voiceStatus").textContent = "聞き取れませんでした。もう一度話しかけてください。";
   };
   recognition.onend = async () => {
     setListening(false);
     const spoken = (finalStr || $("voiceText").textContent).trim();
     if (!spoken) return;
-    $("voiceStatus").textContent = "解析して検索中...";
+    $("voiceStatus").textContent = "AIエージェントが理解して検索中...";
     const p = parseVoice(spoken);
     if (p.to) $("destination").value = p.to;
     if (p.useGps) await fetchGpsOrigin();
@@ -244,16 +268,17 @@ function renderAgentReply(origin, destination, preference, shouldAutoSpeak) {
   const prefText = preference === "shortest" ? "一番早い" : "一番安い";
   const note = $("userNote").value.trim();
 
-  $("userQueryBubble").textContent = note ? `「${note}」` : `${origin} から ${destination} まで（${prefText}優先）`;
+  $("userQueryBubble").textContent = note ? `「${note}」` : `${origin} から ${destination} まで（${prefText}）`;
 
   if (!best) {
-    $("aiReplyLead").textContent = "条件に合うルートが見つかりませんでした。別の場所でお試しください。";
+    $("aiReplyLead").textContent = "すみません、その条件に合うルートが見つかりませんでした。別の場所を教えてください。";
     $("aiReplyHighlights").innerHTML = "";
     speechScript = $("aiReplyLead").textContent;
+    if (shouldAutoSpeak) sayShortPhrase(speechScript, handsFreeEnabled);
     return;
   }
 
-  $("aiReplyLead").textContent = `${origin}から${destination}へは、ルート${best.routeId}（約${best.durationMinutes}分・${best.fareYen}円）が${prefText}でおすすめです。`;
+  $("aiReplyLead").textContent = `${origin}から${destination}までは、ルート${best.routeId}（約${best.durationMinutes}分・${best.fareYen}円）が${prefText}ですよ。`;
 
   $("aiReplyHighlights").innerHTML = best.legs
     .map((leg, idx) => {
@@ -274,9 +299,11 @@ function renderAgentReply(origin, destination, preference, shouldAutoSpeak) {
   const steps = best.legs
     .map((l) => `${l.lineName}で${l.boardAt}から${l.alightAt}まで約${l.durationMinutes}分`)
     .join("。次は");
-  speechScript = `${origin}から${destination}までは、ルート${best.routeId}、約${best.durationMinutes}分、${best.fareYen}円がおすすめです。${steps}で向かいます。`;
+  speechScript = `${origin}から${destination}までは、ルート${best.routeId}、約${best.durationMinutes}分、${best.fareYen}円が${prefText}です。${steps}で向かいます。`;
 
-  if (shouldAutoSpeak) speakGuide();
+  if (shouldAutoSpeak || handsFreeEnabled) {
+    sayShortPhrase(speechScript, handsFreeEnabled);
+  }
 }
 
 function renderCards() {
@@ -368,6 +395,9 @@ $("searchForm").onsubmit = async (e) => {
     $("loadingState").classList.add("hidden");
     $("errorState").textContent = "エラー: " + err.message;
     $("errorState").classList.remove("hidden");
+    if (handsFreeEnabled) {
+      sayShortPhrase("エラーが起きました。もう一度話しかけてみてください。", true);
+    }
   } finally {
     $("submitBtn").disabled = $("mobileSubmitBtn").disabled = false;
   }
