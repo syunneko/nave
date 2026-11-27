@@ -11,7 +11,7 @@ let handsFreeEnabled = false;
 let recognition = null;
 let isListening = false;
 let currentMode = "voice"; // "voice" | "input"
-let walkRowTimer = null;
+let walkFrameTimer = null;
 let walkFinishTimer = null;
 let walkRafId = null;
 
@@ -27,11 +27,17 @@ const MODE_BADGE = {
   walk: '<span class="px-2 py-0.5 text-xs font-bold rounded bg-slate-100 text-slate-700 border border-slate-200">🚶 徒歩</span>',
 };
 
-// 画面左端の外から定位置までゆっくり歩いて登場し、立ち絵へ切り替え
-function playWalkEntrance() {
-  clearTimeout(walkRowTimer);
+function stopWalkEntrance() {
+  clearInterval(walkFrameTimer);
   clearTimeout(walkFinishTimer);
   cancelAnimationFrame(walkRafId);
+  walkFrameTimer = null;
+  walkFinishTimer = null;
+}
+
+// 画面左端の外から定位置までゆっくり歩いて登場し、立ち絵へ切り替え
+function playWalkEntrance() {
+  stopWalkEntrance();
 
   const walkStage = $("walkStage");
   const walkSprite = $("walkSprite");
@@ -43,13 +49,22 @@ function playWalkEntrance() {
     return;
   }
 
-  // 定位置の中心座標を取得してスプライト(128x128)の左上に変換
+  // 画像が読み込めるか事前チェック
+  const probe = new Image();
+  probe.onerror = () => {
+    walkStage.classList.add("hidden");
+    avatarWrap.classList.remove("hidden");
+    setCharacterState("idle", "DEMO-move.png が見つからなかったよ！public フォルダを確認してね。");
+  };
+  probe.src = "./DEMO-move.png";
+
   const rect = avatarWrap.getBoundingClientRect();
   const spriteSize = 128;
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  const endX = Math.round(centerX - spriteSize / 2);
-  const posY = Math.round(centerY - spriteSize / 2);
+  const fallbackX = Math.max(24, Math.round(window.innerWidth * 0.2 - spriteSize / 2));
+  const fallbackY = Math.max(120, Math.round(window.innerHeight * 0.35 - spriteSize / 2));
+
+  const endX = rect.width > 0 ? Math.round(rect.left + rect.width / 2 - spriteSize / 2) : fallbackX;
+  const posY = rect.height > 0 ? Math.round(rect.top + rect.height / 2 - spriteSize / 2) : fallbackY;
   const startX = -spriteSize - 32;
 
   avatarWrap.classList.add("hidden");
@@ -59,10 +74,29 @@ function playWalkEntrance() {
   walkStage.style.setProperty("--walk-end-x", `${endX}px`);
   walkStage.style.setProperty("--walk-y", `${posY}px`);
 
-  walkSprite.style.backgroundPositionY = "0%";
+  // 4列 x 3行（12コマ）を順番に再生
+  const cols = 4;
+  const rows = 3;
+  let frameIndex = 0;
+
+  const applyFrame = (idx) => {
+    const col = idx % cols;
+    const row = Math.floor(idx / cols) % rows;
+    const xPct = cols > 1 ? (col / (cols - 1)) * 100 : 0;
+    const yPct = rows > 1 ? (row / (rows - 1)) * 100 : 0;
+    walkSprite.style.backgroundPosition = `${xPct}% ${yPct}%`;
+  };
+
+  applyFrame(0);
   badge.textContent = "👣 登場中";
   badge.className = "text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-700";
   $("charBubble").textContent = "てくてく…左から歩いて向かっているよ！";
+
+  // 3.2秒かけて12コマをゆっくり再生（約266ms/コマ）
+  walkFrameTimer = setInterval(() => {
+    frameIndex += 1;
+    applyFrame(frameIndex);
+  }, 266);
 
   walkRafId = requestAnimationFrame(() => {
     walkRafId = requestAnimationFrame(() => {
@@ -71,16 +105,9 @@ function playWalkEntrance() {
     });
   });
 
-  // ゆっくり3行分を順番にコマ送り
-  walkRowTimer = setTimeout(() => {
-    walkSprite.style.backgroundPositionY = "50%";
-    walkRowTimer = setTimeout(() => {
-      walkSprite.style.backgroundPositionY = "100%";
-    }, 1050);
-  }, 1050);
-
   // 定位置到着後に立ち絵（DEMO.png）へ切り替え
   walkFinishTimer = setTimeout(() => {
+    stopWalkEntrance();
     walkStage.classList.add("hidden");
     walkStage.classList.remove("is-walking");
     avatarWrap.classList.remove("hidden");
@@ -113,9 +140,7 @@ function switchScreen(mode) {
     : "py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:text-slate-900 transition";
 
   if (!isVoice) {
-    clearTimeout(walkRowTimer);
-    clearTimeout(walkFinishTimer);
-    cancelAnimationFrame(walkRafId);
+    stopWalkEntrance();
     $("walkStage").classList.add("hidden");
     $("avatarWrap").classList.remove("hidden");
 
@@ -346,9 +371,7 @@ function parseVoice(text) {
 function setListening(active) {
   isListening = active;
   if (active) {
-    clearTimeout(walkRowTimer);
-    clearTimeout(walkFinishTimer);
-    cancelAnimationFrame(walkRafId);
+    stopWalkEntrance();
     $("walkStage").classList.add("hidden");
     $("avatarWrap").classList.remove("hidden");
   }

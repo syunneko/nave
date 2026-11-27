@@ -103,15 +103,4 @@ body {
   background-size: 400% 300%;
   background-position: 0% 0%;
   background-repeat: no-repeat;
-  mix-blend-mode: screen;
-  animation: walkCols 0.55s steps(4) infinite;
-}
-
-@keyframes walkCols {
-  from {
-    background-position-x: 0%;
-  }
-  to {
-    background-position-x: 133.3333%;
-  }
 }
